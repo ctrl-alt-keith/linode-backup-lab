@@ -45,6 +45,12 @@ It is not an operations system, fleet tool, or production recovery service.
 - secret management
 - restore automation
 
+## Related Lab
+
+`ctrl-alt-keith/linode-image-lab` is the sibling public-safe lab for image
+capture and deploy validation. Linode Backup Lab stays focused on backup
+validation, snapshot inspection, and future restore-drill validation.
+
 ## Provider API Versioning
 
 The Linode provider API version defaults to `v4` and is centralized in
