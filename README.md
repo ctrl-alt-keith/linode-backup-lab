@@ -1,7 +1,60 @@
 # Linode Backup Lab
 
-Personal, public-safe lab scaffold for validating Linode backup and snapshot
-workflows.
+Personal, public-safe lab scaffold for backup validation, snapshot validation,
+snapshot inspection, and future restore-drill validation on Linode.
 
-This repository starts intentionally small. Feature work should stay scoped,
-safety-oriented, and validated through `make check`.
+This is a personal open-source project. It is not affiliated with, endorsed by,
+or supported by Linode, Akamai, or their affiliates. It makes no production
+availability, disaster recovery, restore success, data integrity, or operational
+safety guarantees.
+
+The project starts intentionally small. Feature work should stay scoped,
+safety-oriented, dry-run-first, and validated through `make check`.
+
+## Safety Posture
+
+- Dry-run planning and inspection come before any provider mutation.
+- Live mutations require explicit future command support and explicit operator
+  opt-in.
+- Public output should avoid tokens, authorization headers, raw provider
+  response bodies, and unnecessary provider-identifying detail.
+- Manifests should remain deterministic enough to debug a run while using
+  stable project concepts where practical.
+- Provider API versions, endpoint paths, and raw response structures stay in the
+  API boundary.
+
+## Scope
+
+Linode Backup Lab is for narrow validation and recovery workflow exploration:
+
+- backup validation
+- snapshot validation
+- snapshot inspection
+- future restore-drill validation
+
+It is not an operations system, fleet tool, or production recovery service.
+
+## Non-Goals
+
+- orchestration systems
+- automatic remediation
+- scheduling engines
+- desired-state management
+- multi-cloud or multi-provider abstractions
+- HA/DR orchestration
+- secret management
+- restore automation
+
+## Provider API Versioning
+
+The Linode provider API version defaults to `v4` and is centralized in
+`src/linode_backup_lab/linode_api.py`. Command helpers consume normalized
+project shapes such as `linode_id`, `backup_id`, `snapshot_label`,
+and `backup_status` instead of raw provider response fields where practical.
+
+Manifests record the provider API version separately from the project
+`schema_version` for audit and debugging visibility.
+
+## License
+
+Licensed under the Apache License, Version 2.0. See `LICENSE`.
