@@ -78,14 +78,6 @@ class LinodeApiClient:
         )
         return normalize_backup(raw)
 
-    def restore_backup(self, linode_id: int, backup_id: int, restore_target: int, *, overwrite: bool = False) -> JsonMap:
-        raw = self.request(
-            "POST",
-            self.path("linode", "instances", linode_id, "backups", backup_id, "restore"),
-            {"linode_id": restore_target, "overwrite": overwrite},
-        )
-        return normalize_restore_response(raw, restore_target=restore_target)
-
     def request(self, method: str, path: str, body: JsonMap | None = None) -> JsonMap:
         if self.transport is None:
             raise RuntimeError("LinodeApiClient requires an injected transport before making API requests")
@@ -120,12 +112,4 @@ def normalize_backup(raw: JsonMap, *, backup_type: str | None = None) -> JsonMap
         "available": raw.get("available"),
         "created_at": raw.get("created"),
         "finished_at": raw.get("finished"),
-    }
-
-
-def normalize_restore_response(raw: JsonMap, *, restore_target: int) -> JsonMap:
-    return {
-        "restore_target": restore_target,
-        "accepted": True,
-        "provider_response": raw,
     }

@@ -79,6 +79,18 @@ class LinodeApiTests(unittest.TestCase):
 
         self.assertEqual(offenders, [])
 
+    def test_client_exposes_no_live_restore_mutation_helper(self) -> None:
+        self.assertFalse(hasattr(LinodeApiClient, "restore_backup"))
+
+        src_root = Path(__file__).resolve().parents[2] / "src" / "linode_backup_lab"
+        offenders = []
+        for path in src_root.glob("*.py"):
+            text = path.read_text(encoding="utf-8")
+            if '"restore"' in text or "'restore'" in text:
+                offenders.append(path.name)
+
+        self.assertEqual(offenders, [])
+
     def test_normalize_backup_uses_stable_internal_names(self) -> None:
         backup = normalize_backup(
             {

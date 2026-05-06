@@ -8,8 +8,9 @@ Repo-local rules take precedence only for repo-specific behavior.
 
 - This repo contains a public-safe Linode Backup Lab scaffold.
 - Keep implementation lightweight and explicitly safety-oriented.
-- Do not add restore orchestration, multi-provider support, provider
-  negotiation, or desired-state management until a later milestone asks for it.
+- Do not add live restore behavior, multi-provider support, provider
+  negotiation, scheduling engines, automatic remediation, or desired-state
+  management until a later milestone asks for it.
 
 ## Provider Assumptions
 

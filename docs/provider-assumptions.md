@@ -13,6 +13,11 @@ Config schema versioning is separate from provider API versioning. Manifests
 record both the project schema version and the Linode provider API version so
 audit/debug output can explain which API surface generated a result.
 
+Documented provider behavior is not the same as a project guarantee. This
+bootstrap records provider references for backup and snapshot inspection work;
+future restore-drill validation must re-check the relevant official restore
+documentation before adding any live restore behavior.
+
 ## Official References
 
 - Linode API reference, List backups:
@@ -30,6 +35,8 @@ audit/debug output can explain which API surface generated a result.
 - Raw provider response fields are normalized before command helpers consume
   them.
 - Stable internal resource concepts include `linode_id`, `backup_id`,
-  `snapshot_label`, `backup_status`, and `restore_target`.
-- No provider abstraction framework, API-version negotiation, restore
-  orchestration, or compatibility shim exists in this bootstrap.
+  `snapshot_label`, `backup_status`, and future `restore_target`.
+- No provider abstraction framework, API-version negotiation, restore execution,
+  restore automation, or compatibility shim exists in this bootstrap.
+- Public-facing manifests should prefer normalized project fields and avoid raw
+  provider response bodies.
