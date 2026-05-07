@@ -8,7 +8,7 @@ from typing import Any, Mapping, Protocol
 from .config import BackupLabConfig
 from .linode_api import DOCUMENTED_BACKUP_FIELDS, JsonMap
 from .manifest import create_manifest
-from .plan import redacted_target_metadata
+from .plan import mutation_intent, redacted_target_metadata
 
 
 class InspectClient(Protocol):
@@ -31,6 +31,11 @@ def create_inspect_manifest(
     backups = client.list_backups(config.target.linode_id)
     public_backups = [public_safe_backup_state(backup) for backup in backups]
     summary = inspect_summary(public_backups)
+    provider_call = {
+        "kind": "read",
+        "method": "GET",
+        "operation": "list_backups",
+    }
 
     manifest = create_manifest(
         action=command,
@@ -47,7 +52,10 @@ def create_inspect_manifest(
                 "config_source": "explicit",
                 "config_path_recorded": False,
                 "token_source": "environment",
-                "provider_calls": "read_only_list_backups",
+                "provider_calls": {
+                    "occurred": True,
+                    "items": [provider_call],
+                },
             },
             "config": {
                 "schema_version": config.schema_version,
@@ -68,13 +76,20 @@ def create_inspect_manifest(
                 **summary,
             },
             "normalized_backup_state": public_backups,
-            "mutation_intent": {
-                "operator_intent_declared": False,
-                "execution_requested": False,
-                "requested": False,
-                "allowed": False,
-                "execution_performed": False,
-                "reason": "read-only inspection only",
+            "mutation_intent": mutation_intent(
+                planned_operation=None,
+                reason="read-only inspection only",
+            ),
+            "outcome": {
+                "status": "provider_read_completed",
+                "provider_reads": [
+                    {
+                        **provider_call,
+                        "request_sent": True,
+                        "response_received": True,
+                    }
+                ],
+                "provider_mutations": [],
             },
             "validation": {
                 "status": "passed",
@@ -84,7 +99,6 @@ def create_inspect_manifest(
                     "target_linode_id_valid",
                     "target_snapshot_label_valid",
                     "linode_token_environment_present",
-                    "provider_read_completed",
                 ],
             },
             "safety": {

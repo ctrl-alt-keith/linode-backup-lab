@@ -66,19 +66,34 @@ class InspectTests(unittest.TestCase):
         self.assertEqual(manifest["status"], "inspected")
         self.assertEqual(manifest["provider"], {"name": "linode", "api_version": "v4beta"})
         self.assertEqual(manifest["config"], {"schema_version": "1"})
+        self.assertEqual(
+            manifest["command"]["provider_calls"],
+            {
+                "occurred": True,
+                "items": [
+                    {
+                        "kind": "read",
+                        "method": "GET",
+                        "operation": "list_backups",
+                    }
+                ],
+            },
+        )
         self.assertEqual(manifest["provider_read"]["method"], "GET")
         self.assertEqual(manifest["provider_read"]["status"], "performed")
         self.assertEqual(
             manifest["mutation_intent"],
             {
-                "operator_intent_declared": False,
+                "planned_operation": None,
                 "execution_requested": False,
-                "requested": False,
-                "allowed": False,
+                "execution_allowed": False,
                 "execution_performed": False,
                 "reason": "read-only inspection only",
             },
         )
+        self.assertEqual(manifest["outcome"]["status"], "provider_read_completed")
+        self.assertEqual(manifest["outcome"]["provider_reads"][0]["response_received"], True)
+        self.assertNotIn("provider_read_completed", manifest["validation"]["checks"])
         self.assertEqual(manifest["safety"]["provider_mutations"], "not_performed")
         self.assertIs(manifest["safety"]["read_only_enforced"], True)
         self.assertEqual(manifest["inspection_summary"]["backup_count"], 2)

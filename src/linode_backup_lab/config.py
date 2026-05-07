@@ -12,6 +12,8 @@ except ModuleNotFoundError:  # pragma: no cover - exercised only on Python 3.10
     import tomli as tomllib  # type: ignore[no-redef]
 
 CONFIG_SCHEMA_VERSION = "1"
+SNAPSHOT_LABEL_MIN_LENGTH = 1
+SNAPSHOT_LABEL_MAX_LENGTH = 255
 
 
 class ConfigError(ValueError):
@@ -69,10 +71,13 @@ def validate_config(raw_config: dict[str, Any]) -> BackupLabConfig:
         raise ConfigError("target.linode_id must be a positive integer")
 
     snapshot_label = raw_target.get("snapshot_label")
-    if not isinstance(snapshot_label, str) or not snapshot_label.strip():
-        raise ConfigError("target.snapshot_label must be a non-empty string")
+    if not isinstance(snapshot_label, str):
+        raise ConfigError("target.snapshot_label must be a string with length 1..255 after trimming whitespace")
+    snapshot_label = snapshot_label.strip()
+    if not SNAPSHOT_LABEL_MIN_LENGTH <= len(snapshot_label) <= SNAPSHOT_LABEL_MAX_LENGTH:
+        raise ConfigError("target.snapshot_label must be a string with length 1..255 after trimming whitespace")
 
     return BackupLabConfig(
         schema_version=schema_version,
-        target=TargetConfig(linode_id=linode_id, snapshot_label=snapshot_label.strip()),
+        target=TargetConfig(linode_id=linode_id, snapshot_label=snapshot_label),
     )

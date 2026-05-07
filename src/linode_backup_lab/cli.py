@@ -44,12 +44,14 @@ def main(
 
     try:
         config = load_config(args.config)
-        if args.command == "inspect":
+        if args.command == "plan":
+            manifest = create_plan_manifest(config, command=args.command)
+        elif args.command == "inspect":
             token = require_linode_token(env)
             factory = inspect_client_factory or (lambda linode_token: LinodeApiClient(token=linode_token))
             manifest = create_inspect_manifest(config, client=factory(token), command=args.command)
         else:
-            manifest = create_plan_manifest(config, command=args.command)
+            parser.error(f"unsupported command: {args.command}")
     except ConfigError as exc:
         print(f"error: {exc}", file=error_output)
         return 2
