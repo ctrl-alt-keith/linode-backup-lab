@@ -13,6 +13,20 @@ Config schema versioning is separate from provider API versioning. Manifests
 record both the project schema version and the Linode provider API version so
 audit/debug output can explain which API surface generated a result.
 
+The initial project config schema is intentionally small:
+
+```toml
+schema_version = "1"
+
+[target]
+linode_id = 123456
+snapshot_label = "pre-upgrade"
+```
+
+Config loading is explicit-only through `--config PATH`. The dry-run plan flow
+records provider call and mutation decisions in the manifest, but does not
+perform provider reads or mutations.
+
 Documented provider behavior is not the same as a project guarantee. This
 bootstrap records provider references for backup and snapshot inspection work;
 future restore-drill validation must re-check the relevant official restore

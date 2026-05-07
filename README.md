@@ -11,6 +11,32 @@ safety guarantees.
 The project starts intentionally small. Feature work should stay scoped,
 safety-oriented, dry-run-first, and validated through `make check`.
 
+## Dry-Run Plan
+
+The first command contract is explicit dry-run planning:
+
+```sh
+python -m linode_backup_lab plan --config path/to/backup-lab.toml
+```
+
+There is no implicit config discovery. The `--config` path is required.
+
+Minimal config:
+
+```toml
+schema_version = "1"
+
+[target]
+linode_id = 123456
+snapshot_label = "pre-upgrade"
+```
+
+The plan command emits a deterministic JSON manifest that records the command,
+dry-run state, config schema version, provider API version, planned snapshot
+intent, validation checks, mutation intent, and safety decisions. It does not
+read from Linode, mutate Linode resources, require `LINODE_TOKEN`, or perform
+cleanup.
+
 ## Safety Posture
 
 - Dry-run planning and inspection come before any provider mutation.

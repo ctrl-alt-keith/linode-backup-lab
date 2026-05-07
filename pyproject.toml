@@ -12,6 +12,9 @@ license = { text = "Apache-2.0" }
 classifiers = [
     "License :: OSI Approved :: Apache Software License",
 ]
+dependencies = [
+    "tomli>=2.0; python_version<'3.11'",
+]
 
 [tool.setuptools.packages.find]
 where = ["src"]
