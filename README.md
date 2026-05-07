@@ -1,7 +1,7 @@
 # Linode Backup Lab
 
 Personal, public-safe lab scaffold for backup validation, snapshot validation,
-and snapshot inspection on Linode.
+snapshot inspection, and future restore-drill validation on Linode.
 
 This is a personal open-source project. It is not affiliated with, endorsed by,
 or supported by Linode, Akamai, or their affiliates. It makes no production
@@ -76,6 +76,7 @@ Linode Backup Lab is for narrow validation and recovery workflow exploration:
 - backup validation
 - snapshot validation
 - snapshot inspection
+- future restore-drill validation
 
 It is not an operations system, fleet tool, or production recovery service.
 
@@ -94,7 +95,7 @@ It is not an operations system, fleet tool, or production recovery service.
 
 `ctrl-alt-keith/linode-image-lab` is the sibling public-safe lab for image
 capture and deploy validation. Linode Backup Lab stays focused on backup
-validation and snapshot inspection.
+validation, snapshot inspection, and future restore-drill validation.
 
 ## Provider API Versioning
 

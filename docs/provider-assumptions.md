@@ -41,7 +41,8 @@ backup/snapshot categories.
 
 Documented provider behavior is not the same as a project guarantee. This
 bootstrap records provider references for backup and snapshot inspection work;
-restore behavior remains out of scope.
+future restore-drill validation remains deferred conceptual scope. No live
+restore behavior exists in this repository.
 
 ## Official References
 
