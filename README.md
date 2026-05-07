@@ -33,9 +33,10 @@ snapshot_label = "pre-upgrade"
 
 The plan command emits a deterministic JSON manifest that records the command,
 dry-run state, config schema version, provider API version, planned snapshot
-intent, validation checks, mutation intent, and safety decisions. It does not
-read from Linode, mutate Linode resources, require `LINODE_TOKEN`, or perform
-cleanup.
+intent, validation checks, mutation intent, and safety decisions. It redacts raw
+target values such as `linode_id` and `snapshot_label`, while preserving
+presence and validation metadata for review. It does not read from Linode,
+mutate Linode resources, require `LINODE_TOKEN`, or perform cleanup.
 
 ## Safety Posture
 

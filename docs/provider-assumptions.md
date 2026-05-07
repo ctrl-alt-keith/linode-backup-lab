@@ -25,7 +25,9 @@ snapshot_label = "pre-upgrade"
 
 Config loading is explicit-only through `--config PATH`. The dry-run plan flow
 records provider call and mutation decisions in the manifest, but does not
-perform provider reads or mutations.
+perform provider reads or mutations. Public manifests do not echo raw
+`linode_id` or `snapshot_label` values; they record concise redacted presence
+and validation metadata instead.
 
 Documented provider behavior is not the same as a project guarantee. This
 bootstrap records provider references for backup and snapshot inspection work;

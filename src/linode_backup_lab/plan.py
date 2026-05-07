@@ -9,6 +9,23 @@ from .linode_api import DEFAULT_PROVIDER_API_VERSION
 from .manifest import create_manifest
 
 
+def redacted_target_metadata() -> dict[str, Any]:
+    """Return public-safe target metadata for plan manifests."""
+
+    return {
+        "linode_id": {
+            "present": True,
+            "redacted": True,
+            "validated_as": "positive_integer",
+        },
+        "snapshot_label": {
+            "present": True,
+            "redacted": True,
+            "validated_as": "non_empty_string",
+        },
+    }
+
+
 def create_plan_manifest(
     config: BackupLabConfig,
     *,
@@ -41,8 +58,7 @@ def create_plan_manifest(
                     "action": "snapshot_request",
                     "effect": "dry_run_only",
                     "resource_type": "linode_instance",
-                    "linode_id": config.target.linode_id,
-                    "snapshot_label": config.target.snapshot_label,
+                    "target": redacted_target_metadata(),
                     "provider_read": False,
                     "provider_mutation": False,
                 }
@@ -73,7 +89,7 @@ def create_plan_manifest(
     manifest["resources"].append(
         {
             "resource_type": "linode_instance",
-            "linode_id": config.target.linode_id,
+            "target": redacted_target_metadata(),
         }
     )
     return manifest

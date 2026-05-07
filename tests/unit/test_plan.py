@@ -1,3 +1,4 @@
+import json
 import unittest
 
 from linode_backup_lab.config import BackupLabConfig, TargetConfig
@@ -23,7 +24,23 @@ class PlanTests(unittest.TestCase):
                 "action": "plan",
                 "dry_run": True,
                 "status": "planned",
-                "resources": [{"resource_type": "linode_instance", "linode_id": 123}],
+                "resources": [
+                    {
+                        "resource_type": "linode_instance",
+                        "target": {
+                            "linode_id": {
+                                "present": True,
+                                "redacted": True,
+                                "validated_as": "positive_integer",
+                            },
+                            "snapshot_label": {
+                                "present": True,
+                                "redacted": True,
+                                "validated_as": "non_empty_string",
+                            },
+                        },
+                    }
+                ],
                 "command": {
                     "name": "plan",
                     "config_source": "explicit",
@@ -35,8 +52,18 @@ class PlanTests(unittest.TestCase):
                         "action": "snapshot_request",
                         "effect": "dry_run_only",
                         "resource_type": "linode_instance",
-                        "linode_id": 123,
-                        "snapshot_label": "pre-upgrade",
+                        "target": {
+                            "linode_id": {
+                                "present": True,
+                                "redacted": True,
+                                "validated_as": "positive_integer",
+                            },
+                            "snapshot_label": {
+                                "present": True,
+                                "redacted": True,
+                                "validated_as": "non_empty_string",
+                            },
+                        },
                         "provider_read": False,
                         "provider_mutation": False,
                     }
@@ -75,6 +102,18 @@ class PlanTests(unittest.TestCase):
 
         self.assertEqual(manifest["config"]["schema_version"], "1")
         self.assertEqual(manifest["provider"]["api_version"], "v4beta")
+
+    def test_plan_manifest_does_not_emit_raw_target_values(self) -> None:
+        config = BackupLabConfig(
+            schema_version="1",
+            target=TargetConfig(linode_id=987654321, snapshot_label="private-label-value"),
+        )
+
+        manifest_json = json.dumps(create_plan_manifest(config), sort_keys=True)
+
+        self.assertNotIn("987654321", manifest_json)
+        self.assertNotIn("private-label-value", manifest_json)
+        self.assertIn('"redacted": true', manifest_json)
 
 
 if __name__ == "__main__":
