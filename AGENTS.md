@@ -12,6 +12,13 @@ Repo-local rules take precedence only for repo-specific behavior.
   negotiation, scheduling engines, automatic remediation, or desired-state
   management until a later milestone asks for it.
 
+## File Placement
+
+- Put source code under `src/linode_backup_lab/`.
+- Put unit tests under `tests/unit/`.
+- Put repo documentation under `docs/`.
+- Put sanitized fixtures under `tests/fixtures/sanitized/`.
+
 ## Provider Assumptions
 
 - Before changing behavior, docs, tests, or user-facing claims that depend on
@@ -34,6 +41,10 @@ Repo-local rules take precedence only for repo-specific behavior.
 ## Validation
 
 - Use `make check` as the canonical validation entrypoint.
+- `make check` runs Python compile checks for `src` and `tests`.
+- `make check` runs the unit test suite under `tests/unit`.
+- Live provider checks, credentialed checks, and release checks are outside
+  local blocking validation right now.
 - Keep validation implemented through the Makefile rather than direct tool
   invocation in normal workflow.
 
