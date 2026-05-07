@@ -44,6 +44,21 @@ bootstrap records provider references for backup and snapshot inspection work;
 future restore-drill validation remains deferred conceptual scope. No live
 restore behavior exists in this repository.
 
+## Provider Client Boundary
+
+`LinodeApiClient` is the current live provider client and is read-only by
+contract. It exists for inspection reads only. Its `request` method accepts
+`GET` without a body; non-`GET` requests and request bodies are rejected before
+the transport is called.
+
+Future snapshot execution must introduce a separate mutation-specific provider
+boundary in `src/linode_backup_lab/linode_api.py` rather than quietly adding
+write helpers to `LinodeApiClient`. That first mutation boundary must keep
+Linode API version and path handling centralized here, add focused tests for
+its explicit mutation contract, and preserve public-safe reporting. Provider
+`POST` behavior remains deferred; no mutation client, mutation helper, restore
+helper, or mutation CLI exists yet.
+
 ## Official References
 
 - Linode API reference, List backups:
@@ -58,10 +73,12 @@ restore behavior exists in this repository.
 - Raw endpoint paths are built only in the API boundary.
 - Raw provider response fields are normalized before command helpers consume
   them.
+- The current live provider client is read-only and enforces `GET` without a
+  request body.
 - Stable internal resource concepts include `linode_id`, `backup_id`,
   `backup_label`, `backup_kind`, `snapshot_state`, and `backup_status`.
 - No provider abstraction framework, API-version negotiation, mutation command,
-  restore execution, restore automation, or compatibility shim exists in this
-  bootstrap.
+  mutation provider client, restore execution, restore automation, or
+  compatibility shim exists in this bootstrap.
 - Public-facing manifests should prefer normalized project fields and avoid raw
   provider response bodies.

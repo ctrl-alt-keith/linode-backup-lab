@@ -73,7 +73,7 @@ class LinodeApiTests(unittest.TestCase):
             ],
         )
 
-    def test_client_rejects_mutation_methods_before_transport(self) -> None:
+    def test_client_rejects_non_get_methods_before_transport(self) -> None:
         seen: list[str] = []
 
         def transport(
@@ -89,6 +89,25 @@ class LinodeApiTests(unittest.TestCase):
 
         with self.assertRaises(ProviderReadOnlyViolation):
             client.request("POST", client.path("linode", "instances", 123, "backups"), {"label": "pre-upgrade"})
+
+        self.assertEqual(seen, [])
+
+    def test_client_rejects_request_bodies_before_transport(self) -> None:
+        seen: list[str] = []
+
+        def transport(
+            method: str,
+            url: str,
+            headers: dict[str, object],
+            body: dict[str, object] | None,
+        ) -> dict[str, object]:
+            seen.append(method)
+            return {}
+
+        client = LinodeApiClient(token="token", transport=transport)
+
+        with self.assertRaises(ProviderReadOnlyViolation):
+            client.request("GET", client.path("linode", "instances", 123, "backups"), {"unexpected": True})
 
         self.assertEqual(seen, [])
 
