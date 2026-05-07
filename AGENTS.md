@@ -51,5 +51,6 @@ Repo-local rules take precedence only for repo-specific behavior.
 ## Branches and PRs
 
 - Branch from current `origin/main`.
-- Use focused branch names such as `codex/provider-api-versioning`.
+- Follow the shared playbook branch naming guidance; use focused,
+  purpose-based names such as `docs/<short-name>` or `feature/<short-name>`.
 - Open PRs against `main`.
