@@ -8,8 +8,9 @@ from __future__ import annotations
 
 from typing import Protocol
 
+from .config import BackupLabConfig
 from .linode_api import DEFAULT_PROVIDER_API_VERSION, JsonMap
-from .manifest import create_manifest
+from .plan import create_plan_manifest
 
 
 class SnapshotClient(Protocol):
@@ -18,8 +19,7 @@ class SnapshotClient(Protocol):
 
 def snapshot_manifest(
     *,
-    linode_id: int,
-    snapshot_label: str,
+    config: BackupLabConfig,
     client: SnapshotClient | None = None,
     provider_api_version: str = DEFAULT_PROVIDER_API_VERSION,
     dry_run: bool = True,
@@ -28,13 +28,8 @@ def snapshot_manifest(
         raise ValueError("snapshot execution is not implemented; dry-run planning only")
 
     version = client.provider_api_version if client is not None else provider_api_version
-    manifest = create_manifest(action="snapshot", provider_api_version=version, dry_run=dry_run)
-    manifest["resources"].append(
-        {
-            "resource_type": "snapshot_request",
-            "linode_id": linode_id,
-            "snapshot_label": snapshot_label,
-        }
+    return create_plan_manifest(
+        config,
+        command="snapshot",
+        provider_api_version=version,
     )
-
-    return manifest
