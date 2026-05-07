@@ -2,6 +2,10 @@
 
 Provider API versioning, endpoint paths, and raw response normalization live in
 this module so command logic can work with stable project concepts.
+
+`LinodeApiClient` is intentionally a read-only inspection client. Future live
+mutation work must introduce an explicit mutation-specific provider boundary
+instead of adding write helpers to this client.
 """
 
 from __future__ import annotations
@@ -69,7 +73,7 @@ def api_path(*parts: object, api_version: str = DEFAULT_PROVIDER_API_VERSION) ->
 
 @dataclass
 class LinodeApiClient:
-    """Small injectable read-only client for backup-service endpoints."""
+    """Small injectable read-only client for backup-service inspection."""
 
     token: str
     config: ProviderConfig = ProviderConfig()

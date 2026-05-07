@@ -44,6 +44,9 @@ distinct:
 Current public-safe commands never request, allow, or perform live mutation
 execution. `plan` and the snapshot helper declare operator intent for a dry-run
 snapshot plan. `inspect` declares no mutation intent and remains read-only.
+Future mutation execution must introduce an explicit mutation-specific provider
+boundary and tests before any provider write behavior is added; the current
+`LinodeApiClient` remains a read-only inspection client.
 
 ## Run Identity And Persistence
 
