@@ -1,5 +1,7 @@
+import json
 import unittest
 
+from linode_backup_lab.config import BackupLabConfig, TargetConfig
 from linode_backup_lab.snapshot import snapshot_manifest
 
 
@@ -8,20 +10,49 @@ class FakeSnapshotClient:
 
 
 class SnapshotTests(unittest.TestCase):
-    def test_dry_run_manifest_uses_stable_resource_names(self) -> None:
-        manifest = snapshot_manifest(linode_id=123, snapshot_label="pre-upgrade")
-
-        self.assertEqual(manifest["provider"]["api_version"], "v4")
-        self.assertEqual(
-            manifest["resources"],
-            [{"resource_type": "snapshot_request", "linode_id": 123, "snapshot_label": "pre-upgrade"}],
+    def test_dry_run_manifest_matches_public_safe_plan_posture(self) -> None:
+        config = BackupLabConfig(
+            schema_version="1",
+            target=TargetConfig(linode_id=987654321, snapshot_label="private-label-value"),
         )
 
+        manifest = snapshot_manifest(config=config)
+        manifest_json = json.dumps(manifest, sort_keys=True)
+
+        self.assertEqual(manifest["provider"]["api_version"], "v4")
+        self.assertEqual(manifest["action"], "snapshot")
+        self.assertEqual(manifest["run_id"], "dry-run-snapshot")
+        self.assertEqual(manifest["command"]["provider_calls"], "not_performed")
+        self.assertEqual(manifest["safety"]["provider_mutations"], "not_performed")
+        self.assertEqual(manifest["mutation_intent"]["requested"], False)
+        self.assertEqual(manifest["planned_actions"][0]["effect"], "dry_run_only")
+        self.assertEqual(manifest["planned_actions"][0]["target"], manifest["resources"][0]["target"])
+        self.assertNotIn("987654321", manifest_json)
+        self.assertNotIn("private-label-value", manifest_json)
+        self.assertIn('"redacted": true', manifest_json)
+
+    def test_snapshot_client_contributes_provider_version_without_provider_calls(self) -> None:
+        config = BackupLabConfig(
+            schema_version="1",
+            target=TargetConfig(linode_id=123, snapshot_label="pre-upgrade"),
+        )
+
+        manifest = snapshot_manifest(config=config, client=FakeSnapshotClient())
+
+        self.assertEqual(manifest["provider"]["api_version"], "v4beta")
+        self.assertEqual(manifest["command"]["provider_calls"], "not_performed")
+        self.assertEqual(manifest["safety"]["provider_reads"], "not_performed")
+        self.assertEqual(manifest["safety"]["provider_mutations"], "not_performed")
+
     def test_snapshot_execution_is_not_available(self) -> None:
+        config = BackupLabConfig(
+            schema_version="1",
+            target=TargetConfig(linode_id=123, snapshot_label="pre-upgrade"),
+        )
         client = FakeSnapshotClient()
 
         with self.assertRaises(ValueError):
-            snapshot_manifest(linode_id=123, snapshot_label="pre-upgrade", client=client, dry_run=False)
+            snapshot_manifest(config=config, client=client, dry_run=False)
 
 
 if __name__ == "__main__":
