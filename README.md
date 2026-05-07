@@ -1,7 +1,7 @@
 # Linode Backup Lab
 
 Personal, public-safe lab scaffold for backup validation, snapshot validation,
-snapshot inspection, and future restore-drill validation on Linode.
+and snapshot inspection on Linode.
 
 This is a personal open-source project. It is not affiliated with, endorsed by,
 or supported by Linode, Akamai, or their affiliates. It makes no production
@@ -38,6 +38,25 @@ target values such as `linode_id` and `snapshot_label`, while preserving
 presence and validation metadata for review. It does not read from Linode,
 mutate Linode resources, require `LINODE_TOKEN`, or perform cleanup.
 
+## Read-Only Inspect
+
+The first live provider command is explicit read-only inspection:
+
+```sh
+LINODE_TOKEN=... python -m linode_backup_lab inspect --config path/to/backup-lab.toml
+```
+
+`LINODE_TOKEN` is environment-only and is never read from config or written to
+the report. Inspect uses the configured target to read the Linode backups
+collection, then emits a public-safe JSON report with command metadata, project
+config schema version, provider API version, validation state, provider-read
+status, inspection summary, safety decisions, and normalized backup/snapshot
+state. Raw target values, backup identifiers, labels, provider timestamps,
+authorization headers, and raw provider response bodies are not emitted.
+
+Inspect is non-interactive and read-only. It does not create snapshots, enable
+or cancel backups, restore backups, mutate Linode resources, or perform cleanup.
+
 ## Safety Posture
 
 - Dry-run planning and inspection come before any provider mutation.
@@ -57,7 +76,6 @@ Linode Backup Lab is for narrow validation and recovery workflow exploration:
 - backup validation
 - snapshot validation
 - snapshot inspection
-- future restore-drill validation
 
 It is not an operations system, fleet tool, or production recovery service.
 
@@ -76,14 +94,15 @@ It is not an operations system, fleet tool, or production recovery service.
 
 `ctrl-alt-keith/linode-image-lab` is the sibling public-safe lab for image
 capture and deploy validation. Linode Backup Lab stays focused on backup
-validation, snapshot inspection, and future restore-drill validation.
+validation and snapshot inspection.
 
 ## Provider API Versioning
 
 The Linode provider API version defaults to `v4` and is centralized in
 `src/linode_backup_lab/linode_api.py`. Command helpers consume normalized
-project shapes such as `linode_id`, `backup_id`, `snapshot_label`,
-and `backup_status` instead of raw provider response fields where practical.
+project shapes such as `linode_id`, `backup_id`, `backup_label`,
+`backup_kind`, `snapshot_state`, and `backup_status` instead of raw provider
+response fields where practical.
 
 Manifests record the provider API version separately from the project
 `schema_version` for audit and debugging visibility.
