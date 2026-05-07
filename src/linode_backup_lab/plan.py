@@ -8,6 +8,9 @@ from .config import BackupLabConfig
 from .linode_api import DEFAULT_PROVIDER_API_VERSION
 from .manifest import create_manifest
 
+SNAPSHOT_OPERATION = "snapshot_request"
+SNAPSHOT_REPLACEMENT_SIDE_EFFECT = "replaces_existing_manual_snapshot_for_linode"
+
 
 def redacted_target_metadata() -> dict[str, Any]:
     """Return public-safe target metadata for plan manifests."""
@@ -21,8 +24,33 @@ def redacted_target_metadata() -> dict[str, Any]:
         "snapshot_label": {
             "present": True,
             "redacted": True,
-            "validated_as": "non_empty_string",
+            "validated_as": "linode_snapshot_label_length_1_255",
         },
+    }
+
+
+def no_provider_calls() -> dict[str, Any]:
+    return {
+        "occurred": False,
+        "items": [],
+    }
+
+
+def mutation_intent(*, planned_operation: str | None, reason: str) -> dict[str, Any]:
+    return {
+        "planned_operation": planned_operation,
+        "execution_requested": False,
+        "execution_allowed": False,
+        "execution_performed": False,
+        "reason": reason,
+    }
+
+
+def no_runtime_outcome() -> dict[str, Any]:
+    return {
+        "status": "not_executed",
+        "provider_reads": [],
+        "provider_mutations": [],
     }
 
 
@@ -48,7 +76,7 @@ def create_plan_manifest(
             "command": {
                 "name": command,
                 "config_source": "explicit",
-                "provider_calls": "not_performed",
+                "provider_calls": no_provider_calls(),
             },
             "config": {
                 "schema_version": config.schema_version,
@@ -61,16 +89,14 @@ def create_plan_manifest(
                     "target": redacted_target_metadata(),
                     "provider_read": False,
                     "provider_mutation": False,
+                    "provider_documented_side_effects": [SNAPSHOT_REPLACEMENT_SIDE_EFFECT],
                 }
             ],
-            "mutation_intent": {
-                "operator_intent_declared": True,
-                "execution_requested": False,
-                "requested": False,
-                "allowed": False,
-                "execution_performed": False,
-                "reason": "dry-run planning only",
-            },
+            "mutation_intent": mutation_intent(
+                planned_operation=SNAPSHOT_OPERATION,
+                reason="dry-run planning only",
+            ),
+            "outcome": no_runtime_outcome(),
             "validation": {
                 "status": "passed",
                 "checks": [

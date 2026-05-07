@@ -36,7 +36,7 @@ class PlanTests(unittest.TestCase):
                             "snapshot_label": {
                                 "present": True,
                                 "redacted": True,
-                                "validated_as": "non_empty_string",
+                                "validated_as": "linode_snapshot_label_length_1_255",
                             },
                         },
                     }
@@ -44,7 +44,10 @@ class PlanTests(unittest.TestCase):
                 "command": {
                     "name": "plan",
                     "config_source": "explicit",
-                    "provider_calls": "not_performed",
+                    "provider_calls": {
+                        "occurred": False,
+                        "items": [],
+                    },
                 },
                 "config": {"schema_version": "1"},
                 "planned_actions": [
@@ -61,20 +64,27 @@ class PlanTests(unittest.TestCase):
                             "snapshot_label": {
                                 "present": True,
                                 "redacted": True,
-                                "validated_as": "non_empty_string",
+                                "validated_as": "linode_snapshot_label_length_1_255",
                             },
                         },
                         "provider_read": False,
                         "provider_mutation": False,
+                        "provider_documented_side_effects": [
+                            "replaces_existing_manual_snapshot_for_linode",
+                        ],
                     }
                 ],
                 "mutation_intent": {
-                    "operator_intent_declared": True,
+                    "planned_operation": "snapshot_request",
                     "execution_requested": False,
-                    "requested": False,
-                    "allowed": False,
+                    "execution_allowed": False,
                     "execution_performed": False,
                     "reason": "dry-run planning only",
+                },
+                "outcome": {
+                    "status": "not_executed",
+                    "provider_reads": [],
+                    "provider_mutations": [],
                 },
                 "validation": {
                     "status": "passed",

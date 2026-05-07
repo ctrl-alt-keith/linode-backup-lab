@@ -86,6 +86,46 @@ class ConfigTests(unittest.TestCase):
             with self.assertRaises(ConfigError):
                 load_config(path)
 
+    def test_rejects_snapshot_label_longer_than_linode_create_snapshot_limit(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "backup-lab.toml"
+            path.write_text(
+                '\n'.join(
+                    [
+                        'schema_version = "1"',
+                        "",
+                        "[target]",
+                        "linode_id = 123",
+                        f'snapshot_label = "{"x" * 256}"',
+                    ]
+                ),
+                encoding="utf-8",
+            )
+
+            with self.assertRaisesRegex(ConfigError, "length 1..255"):
+                load_config(path)
+
+    def test_accepts_snapshot_label_at_linode_create_snapshot_limit(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "backup-lab.toml"
+            snapshot_label = "x" * 255
+            path.write_text(
+                '\n'.join(
+                    [
+                        'schema_version = "1"',
+                        "",
+                        "[target]",
+                        "linode_id = 123",
+                        f'snapshot_label = "{snapshot_label}"',
+                    ]
+                ),
+                encoding="utf-8",
+            )
+
+            config = load_config(path)
+
+        self.assertEqual(config.target.snapshot_label, snapshot_label)
+
 
 if __name__ == "__main__":
     unittest.main()

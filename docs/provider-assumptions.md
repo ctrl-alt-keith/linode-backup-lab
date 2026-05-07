@@ -27,7 +27,9 @@ Config loading is explicit-only through `--config PATH`. The dry-run plan flow
 records provider call and mutation decisions in the manifest, but does not
 perform provider reads or mutations. Public manifests do not echo raw
 `linode_id` or `snapshot_label` values; they record concise redacted presence
-and validation metadata instead.
+and validation metadata instead. `snapshot_label` is validated locally as a
+trimmed string with length `1..255`, matching the official Create a snapshot
+request body constraint for `label`.
 
 The inspect flow uses only the documented List backups `GET` operation for the
 configured Linode target. The provider boundary normalizes documented backup
@@ -59,6 +61,20 @@ its explicit mutation contract, and preserve public-safe reporting. Provider
 `POST` behavior remains deferred; no mutation client, mutation helper, restore
 helper, or mutation CLI exists yet.
 
+## Snapshot Replacement Semantics
+
+Official Akamai/Linode docs describe manual snapshots as a single manual
+snapshot slot for a Linode. The Create a Linode using a backup workflow says a
+snapshot backup can only have one current value and capturing a new one replaces
+any existing snapshot backup. The manual snapshot guide likewise says taking a
+new manual snapshot overwrites any previously saved manual snapshot.
+
+Dry-run manifests therefore describe snapshot creation as having the
+provider-documented side effect
+`replaces_existing_manual_snapshot_for_linode`. Future live snapshot execution
+must surface that side effect before allowing execution. This repository should
+not describe manual snapshots as append-only history.
+
 ## Official References
 
 - Linode API reference, List backups:
@@ -67,6 +83,10 @@ helper, or mutation CLI exists yet.
   <https://techdocs.akamai.com/linode-api/reference/get-backup>
 - Linode API reference, Create a snapshot:
   <https://techdocs.akamai.com/linode-api/reference/post-snapshot>
+- Linode API workflow, Create a Linode using a backup:
+  <https://techdocs.akamai.com/linode-api/reference/create-a-linode-using-a-backup>
+- Akamai Cloud Computing guide, Take a manual snapshot:
+  <https://techdocs.akamai.com/cloud-computing/docs/take-a-manual-snapshot>
 
 ## Local Boundary
 

@@ -73,6 +73,7 @@ class CliTests(unittest.TestCase):
         self.assertEqual(stderr.getvalue(), "")
         self.assertIs(manifest["dry_run"], True)
         self.assertEqual(manifest["command"]["config_source"], "explicit")
+        self.assertEqual(manifest["command"]["provider_calls"], {"occurred": False, "items": []})
         self.assertEqual(manifest["safety"]["provider_mutations"], "not_performed")
 
     def test_invalid_config_returns_error_without_manifest(self) -> None:
@@ -87,6 +88,16 @@ class CliTests(unittest.TestCase):
         self.assertEqual(exit_code, 2)
         self.assertEqual(stdout.getvalue(), "")
         self.assertIn("unsupported config schema_version", stderr.getvalue())
+
+    def test_unknown_command_is_rejected_before_dispatch(self) -> None:
+        parser = build_parser()
+        stderr = StringIO()
+
+        with redirect_stderr(stderr), self.assertRaises(SystemExit) as raised:
+            parser.parse_args(["snapshot", "--config", "backup-lab.toml"])
+
+        self.assertEqual(raised.exception.code, 2)
+        self.assertIn("invalid choice", stderr.getvalue())
 
     def test_inspect_requires_explicit_config_path(self) -> None:
         parser = build_parser()
@@ -132,6 +143,7 @@ class CliTests(unittest.TestCase):
         self.assertEqual(stderr.getvalue(), "")
         self.assertEqual(manifest["action"], "inspect")
         self.assertEqual(manifest["command"]["token_source"], "environment")
+        self.assertEqual(manifest["command"]["provider_calls"]["items"][0]["operation"], "list_backups")
         self.assertEqual(manifest["provider_read"]["method"], "GET")
         self.assertEqual(manifest["safety"]["provider_mutations"], "not_performed")
         self.assertNotIn("token-value", manifest_json)
