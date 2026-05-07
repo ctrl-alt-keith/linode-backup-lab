@@ -15,6 +15,19 @@ class ManifestTests(unittest.TestCase):
 
         self.assertEqual(manifest["run_id"], "dry-run-plan")
         self.assertEqual(manifest["created_at"], DRY_RUN_CREATED_AT)
+        self.assertEqual(manifest["status"], "planned")
+
+    def test_non_dry_run_manifest_shell_does_not_imply_execution(self) -> None:
+        manifest = create_manifest(
+            action="inspect",
+            dry_run=False,
+            run_id="inspect-run",
+            created_at="2026-05-07T00:00:00+00:00",
+        )
+
+        self.assertEqual(manifest["run_id"], "inspect-run")
+        self.assertEqual(manifest["created_at"], "2026-05-07T00:00:00+00:00")
+        self.assertEqual(manifest["status"], "initialized")
 
 
 if __name__ == "__main__":

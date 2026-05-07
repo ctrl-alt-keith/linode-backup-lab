@@ -69,8 +69,11 @@ def create_inspect_manifest(
             },
             "normalized_backup_state": public_backups,
             "mutation_intent": {
+                "operator_intent_declared": False,
+                "execution_requested": False,
                 "requested": False,
                 "allowed": False,
+                "execution_performed": False,
                 "reason": "read-only inspection only",
             },
             "validation": {

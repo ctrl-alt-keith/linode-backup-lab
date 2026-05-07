@@ -68,6 +68,17 @@ class InspectTests(unittest.TestCase):
         self.assertEqual(manifest["config"], {"schema_version": "1"})
         self.assertEqual(manifest["provider_read"]["method"], "GET")
         self.assertEqual(manifest["provider_read"]["status"], "performed")
+        self.assertEqual(
+            manifest["mutation_intent"],
+            {
+                "operator_intent_declared": False,
+                "execution_requested": False,
+                "requested": False,
+                "allowed": False,
+                "execution_performed": False,
+                "reason": "read-only inspection only",
+            },
+        )
         self.assertEqual(manifest["safety"]["provider_mutations"], "not_performed")
         self.assertIs(manifest["safety"]["read_only_enforced"], True)
         self.assertEqual(manifest["inspection_summary"]["backup_count"], 2)

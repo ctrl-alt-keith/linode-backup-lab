@@ -70,6 +70,10 @@ target values such as `linode_id` and `snapshot_label`, while preserving
 presence and validation metadata for review. It does not read from Linode,
 mutate Linode resources, require `LINODE_TOKEN`, or perform cleanup.
 
+Manifest field semantics, mutation-intent vocabulary, run identity boundaries,
+inspect output boundaries, and CLI exit codes are documented in
+[`docs/manifest-cli-contract.md`](docs/manifest-cli-contract.md).
+
 ## Read-Only Inspect
 
 The first live provider command is explicit read-only inspection:
