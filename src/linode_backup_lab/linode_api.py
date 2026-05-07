@@ -6,16 +6,39 @@ this module so command logic can work with stable project concepts.
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from typing import Any, Callable
+from urllib.error import HTTPError, URLError
 from urllib.parse import quote
+from urllib.request import Request, urlopen
 
 DEFAULT_PROVIDER_API_VERSION = "v4"
 SUPPORTED_PROVIDER_API_VERSIONS = ("v4", "v4beta")
 DEFAULT_BASE_URL = "https://api.linode.com"
+DOCUMENTED_BACKUP_FIELDS = (
+    "available",
+    "configs",
+    "created",
+    "disks",
+    "finished",
+    "id",
+    "label",
+    "status",
+    "type",
+    "updated",
+)
 
 JsonMap = dict[str, Any]
 Transport = Callable[[str, str, JsonMap, JsonMap | None], JsonMap]
+
+
+class ProviderError(RuntimeError):
+    """Raised when a provider read fails before a public-safe report exists."""
+
+
+class ProviderReadOnlyViolation(ProviderError):
+    """Raised if a caller attempts to use the read-only provider client to mutate."""
 
 
 @dataclass(frozen=True)
@@ -46,11 +69,17 @@ def api_path(*parts: object, api_version: str = DEFAULT_PROVIDER_API_VERSION) ->
 
 @dataclass
 class LinodeApiClient:
-    """Small injectable client for backup-service endpoints."""
+    """Small injectable read-only client for backup-service endpoints."""
 
     token: str
     config: ProviderConfig = ProviderConfig()
     transport: Transport | None = None
+
+    def __post_init__(self) -> None:
+        if not self.token.strip():
+            raise ValueError("LinodeApiClient requires a non-empty token")
+        if self.transport is None:
+            self.transport = ReadOnlyHttpTransport()
 
     @property
     def provider_api_version(self) -> str:
@@ -70,17 +99,10 @@ class LinodeApiClient:
         raw = self.request("GET", self.path("linode", "instances", linode_id, "backups", backup_id))
         return normalize_backup(raw)
 
-    def create_snapshot(self, linode_id: int, snapshot_label: str) -> JsonMap:
-        raw = self.request(
-            "POST",
-            self.path("linode", "instances", linode_id, "backups"),
-            {"label": snapshot_label},
-        )
-        return normalize_backup(raw)
-
     def request(self, method: str, path: str, body: JsonMap | None = None) -> JsonMap:
-        if self.transport is None:
-            raise RuntimeError("LinodeApiClient requires an injected transport before making API requests")
+        method = method.upper()
+        if method != "GET" or body is not None:
+            raise ProviderReadOnlyViolation("LinodeApiClient only permits read-only GET requests")
         headers = {
             "Authorization": f"Bearer {self.token}",
             "Content-Type": "application/json",
@@ -88,28 +110,69 @@ class LinodeApiClient:
         return self.transport(method, self.config.base_url.rstrip("/") + path, headers, body)
 
 
+@dataclass(frozen=True)
+class ReadOnlyHttpTransport:
+    """Tiny stdlib transport for live read-only Linode API inspection."""
+
+    timeout_seconds: float = 30.0
+
+    def __call__(self, method: str, url: str, headers: JsonMap, body: JsonMap | None) -> JsonMap:
+        if method.upper() != "GET" or body is not None:
+            raise ProviderReadOnlyViolation("read-only transport only permits GET requests without a body")
+
+        request = Request(url, headers={str(key): str(value) for key, value in headers.items()}, method="GET")
+        try:
+            with urlopen(request, timeout=self.timeout_seconds) as response:
+                payload = response.read().decode("utf-8")
+        except HTTPError as exc:
+            raise ProviderError(f"Linode API read failed with HTTP {exc.code}") from exc
+        except URLError as exc:
+            raise ProviderError("Linode API read failed before receiving a response") from exc
+
+        try:
+            decoded = json.loads(payload) if payload else {}
+        except json.JSONDecodeError as exc:
+            raise ProviderError("Linode API returned invalid JSON") from exc
+        if not isinstance(decoded, dict):
+            raise ProviderError("Linode API returned an unexpected JSON shape")
+        return decoded
+
+
 def normalize_backup_collection(raw: JsonMap) -> list[JsonMap]:
     """Normalize the Linode backups collection into stable backup records."""
 
     backups: list[JsonMap] = []
     for item in raw.get("automatic", []):
-        backups.append(normalize_backup(item, backup_type="automatic"))
+        if isinstance(item, dict):
+            backups.append(normalize_backup(item, backup_kind="automatic"))
     snapshot = raw.get("snapshot")
-    if isinstance(snapshot, dict) and snapshot:
-        backups.append(normalize_backup(snapshot, backup_type="snapshot"))
+    if isinstance(snapshot, dict):
+        current = snapshot.get("current")
+        if isinstance(current, dict) and current:
+            backups.append(normalize_backup(current, backup_kind="snapshot", snapshot_state="current"))
+        in_progress = snapshot.get("in_progress")
+        if isinstance(in_progress, dict) and in_progress:
+            backups.append(normalize_backup(in_progress, backup_kind="snapshot", snapshot_state="in_progress"))
     return backups
 
 
-def normalize_backup(raw: JsonMap, *, backup_type: str | None = None) -> JsonMap:
+def normalize_backup(raw: JsonMap, *, backup_kind: str | None = None, snapshot_state: str | None = None) -> JsonMap:
     """Normalize one provider backup response into project field names."""
 
     backup_id = raw.get("id")
+    configs = raw.get("configs")
+    disks = raw.get("disks")
     return {
         "backup_id": backup_id,
-        "snapshot_label": raw.get("label"),
+        "backup_label": raw.get("label"),
         "backup_status": raw.get("status"),
-        "backup_type": backup_type or raw.get("type"),
+        "backup_kind": backup_kind or raw.get("type"),
+        "snapshot_state": snapshot_state,
+        "provider_type": raw.get("type"),
         "available": raw.get("available"),
         "created_at": raw.get("created"),
         "finished_at": raw.get("finished"),
+        "updated_at": raw.get("updated"),
+        "config_count": len(configs) if isinstance(configs, list) else None,
+        "disk_count": len(disks) if isinstance(disks, list) else None,
     }
