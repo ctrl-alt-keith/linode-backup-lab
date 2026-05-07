@@ -49,8 +49,10 @@ Repo-local rules take precedence only for repo-specific behavior.
 - Use `make check` as the canonical validation entrypoint.
 - `make check` runs Python compile checks for `src` and `tests`.
 - `make check` runs the unit test suite under `tests/unit`.
-- Live provider checks, credentialed checks, and release checks are outside
-  local blocking validation right now.
+- Live provider checks and credentialed checks are outside local blocking
+  validation right now.
+- No release automation or package publication workflow is currently
+  documented for this repository.
 - Keep validation implemented through the Makefile rather than direct tool
   invocation in normal workflow.
 
