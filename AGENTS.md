@@ -19,6 +19,12 @@ Repo-local rules take precedence only for repo-specific behavior.
 - Put repo documentation under `docs/`.
 - Put sanitized fixtures under `tests/fixtures/sanitized/`.
 
+## Local Execution
+
+- Run commands from this repository working directory by default.
+- Keep temporary workflow state repo-local, for example `.worktrees/`.
+- Prefer direct `gh ...` commands unless shell behavior is required.
+
 ## Provider Assumptions
 
 - Before changing behavior, docs, tests, or user-facing claims that depend on
