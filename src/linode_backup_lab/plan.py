@@ -64,8 +64,11 @@ def create_plan_manifest(
                 }
             ],
             "mutation_intent": {
+                "operator_intent_declared": True,
+                "execution_requested": False,
                 "requested": False,
                 "allowed": False,
+                "execution_performed": False,
                 "reason": "dry-run planning only",
             },
             "validation": {

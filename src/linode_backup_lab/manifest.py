@@ -20,7 +20,11 @@ def create_manifest(
     run_id: str | None = None,
     created_at: str | None = None,
 ) -> dict[str, Any]:
-    """Create the shared manifest shell used by command-level helpers."""
+    """Create the shared manifest shell used by command-level helpers.
+
+    Non-dry-run callers must set a command-specific final status before
+    emitting the manifest. The shared shell records only initialization.
+    """
 
     return {
         "schema_version": MANIFEST_SCHEMA_VERSION,
@@ -32,6 +36,6 @@ def create_manifest(
         "created_at": created_at or (DRY_RUN_CREATED_AT if dry_run else datetime.now(timezone.utc).isoformat()),
         "action": action,
         "dry_run": dry_run,
-        "status": "planned" if dry_run else "running",
+        "status": "planned" if dry_run else "initialized",
         "resources": [],
     }
