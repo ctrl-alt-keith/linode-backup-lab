@@ -147,3 +147,5 @@ Manifests record the provider API version separately from the project
 ## License
 
 Licensed under the Apache License, Version 2.0. See `LICENSE`.
+
+> AI-generated. Human-verified. Occasionally argued about.
