@@ -11,6 +11,38 @@ safety guarantees.
 The project starts intentionally small. Feature work should stay scoped,
 safety-oriented, dry-run-first, and validated through `make check`.
 
+## Install From Checkout
+
+For local development, install the checkout in editable mode:
+
+```sh
+python -m pip install -e .
+```
+
+That installs the `linode-backup-lab` console script:
+
+```sh
+linode-backup-lab plan --config path/to/backup-lab.toml
+LINODE_TOKEN=... linode-backup-lab inspect --config path/to/backup-lab.toml
+```
+
+The module entry point remains supported:
+
+```sh
+python -m linode_backup_lab plan --config path/to/backup-lab.toml
+LINODE_TOKEN=... python -m linode_backup_lab inspect --config path/to/backup-lab.toml
+```
+
+From a local checkout, `pipx` can also install the command into an isolated
+environment:
+
+```sh
+pipx install .
+```
+
+This repository is installable from a checkout. It does not include PyPI
+publishing, release automation, or package publication workflows.
+
 ## Dry-Run Plan
 
 The first command contract is explicit dry-run planning:
