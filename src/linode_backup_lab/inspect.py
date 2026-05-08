@@ -9,6 +9,7 @@ from .config import BackupLabConfig
 from .linode_api import DOCUMENTED_BACKUP_FIELDS, JsonMap
 from .manifest import create_manifest
 from .plan import mutation_intent, redacted_target_metadata
+from .review import backup_state_visibility, mutation_review, provider_call_review
 
 
 class InspectClient(Protocol):
@@ -37,6 +38,14 @@ def create_inspect_manifest(
         "method": "GET",
         "operation": "list_backups",
     }
+    provider_calls = {
+        "occurred": True,
+        "items": [provider_call],
+    }
+    intent = mutation_intent(
+        planned_operation=None,
+        reason="read-only inspection only",
+    )
 
     manifest = create_manifest(
         action=command,
@@ -53,10 +62,7 @@ def create_inspect_manifest(
                 "config_source": "explicit",
                 "config_path_recorded": False,
                 "token_source": "environment",
-                "provider_calls": {
-                    "occurred": True,
-                    "items": [provider_call],
-                },
+                "provider_calls": provider_calls,
             },
             "config": {
                 "schema_version": config.schema_version,
@@ -77,10 +83,16 @@ def create_inspect_manifest(
                 **summary,
             },
             "normalized_backup_state": public_backups,
-            "mutation_intent": mutation_intent(
-                planned_operation=None,
-                reason="read-only inspection only",
-            ),
+            "review": {
+                "provider_calls": provider_call_review(provider_calls),
+                "mutations": mutation_review(
+                    intent,
+                    provider_mutations="not_performed",
+                    skipped_reason="read_only_inspection",
+                ),
+                "state_visibility": backup_state_visibility(public_backups),
+            },
+            "mutation_intent": intent,
             "state_assessment": state_assessment,
             "outcome": {
                 "status": "provider_read_completed",
