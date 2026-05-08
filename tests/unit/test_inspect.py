@@ -92,6 +92,12 @@ class InspectTests(unittest.TestCase):
             },
         )
         self.assertEqual(manifest["outcome"]["status"], "provider_read_completed")
+        self.assertEqual(manifest["outcome"]["execution_state"], "completed")
+        self.assertEqual(manifest["outcome"]["retry_classification"], "safe_to_rerun_read_only")
+        self.assertEqual(manifest["outcome"]["idempotency_boundary"], "read_only_provider_request")
+        self.assertIs(manifest["outcome"]["partial_execution"], False)
+        self.assertIs(manifest["outcome"]["state_uncertain"], False)
+        self.assertIs(manifest["outcome"]["operator_review_required"], False)
         self.assertEqual(manifest["outcome"]["provider_reads"][0]["response_received"], True)
         self.assertNotIn("provider_read_completed", manifest["validation"]["checks"])
         self.assertEqual(manifest["safety"]["provider_mutations"], "not_performed")
