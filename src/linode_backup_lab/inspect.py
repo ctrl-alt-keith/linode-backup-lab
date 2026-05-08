@@ -84,6 +84,13 @@ def create_inspect_manifest(
             "state_assessment": state_assessment,
             "outcome": {
                 "status": "provider_read_completed",
+                "execution_state": "completed",
+                "partial_execution": False,
+                "state_uncertain": False,
+                "operator_review_required": False,
+                "retry_classification": "safe_to_rerun_read_only",
+                "idempotency_boundary": "read_only_provider_request",
+                "retry_boundary": "re-running may observe newer provider state but does not mutate resources",
                 "provider_reads": [
                     {
                         **provider_call,
