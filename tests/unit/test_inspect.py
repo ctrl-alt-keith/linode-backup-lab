@@ -161,6 +161,14 @@ class InspectTests(unittest.TestCase):
                         "snapshot_state_for_snapshot": 0,
                     },
                 },
+                "retry_recovery": {
+                    "command_retry_classification": "safe_to_retry",
+                    "provider_state_classification": "state_uncertain",
+                    "automatic_retry": "not_performed",
+                    "runtime_operator_review_required": False,
+                    "runtime_state_uncertain": False,
+                    "provider_state_uncertain": True,
+                },
             },
         )
         self.assertEqual(manifest["state_assessment"]["status"], "uncertain_provider_state")
@@ -243,6 +251,8 @@ class InspectTests(unittest.TestCase):
         self.assertEqual(manifest["state_assessment"]["provider_local_match"], "matched")
         self.assertIs(manifest["state_assessment"]["configured_snapshot_label_matches_current"], True)
         self.assertIs(manifest["state_assessment"]["stale_metadata"]["detected"], False)
+        self.assertEqual(manifest["review"]["retry_recovery"]["command_retry_classification"], "safe_to_retry")
+        self.assertEqual(manifest["review"]["retry_recovery"]["provider_state_classification"], "safe_to_retry")
         self.assertNotIn("private-target-label", manifest_json)
 
     def test_inspect_reports_provider_local_snapshot_mismatch_as_stale_metadata(self) -> None:
@@ -262,6 +272,11 @@ class InspectTests(unittest.TestCase):
         self.assertEqual(
             manifest["state_assessment"]["stale_metadata"]["reason"],
             "current_snapshot_label_differs_from_config",
+        )
+        self.assertEqual(manifest["review"]["retry_recovery"]["command_retry_classification"], "safe_to_retry")
+        self.assertEqual(
+            manifest["review"]["retry_recovery"]["provider_state_classification"],
+            "operator_review_required",
         )
         self.assertNotIn("private-target-label", manifest_json)
         self.assertNotIn("different-provider-label", manifest_json)

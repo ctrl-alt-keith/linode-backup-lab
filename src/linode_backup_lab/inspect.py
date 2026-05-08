@@ -9,7 +9,7 @@ from .config import BackupLabConfig
 from .linode_api import DOCUMENTED_BACKUP_FIELDS, JsonMap
 from .manifest import create_manifest
 from .plan import mutation_intent, redacted_target_metadata
-from .review import backup_state_visibility, mutation_review, provider_call_review
+from .review import backup_state_visibility, mutation_review, provider_call_review, retry_recovery_review
 
 
 class InspectClient(Protocol):
@@ -46,6 +46,24 @@ def create_inspect_manifest(
         planned_operation=None,
         reason="read-only inspection only",
     )
+    outcome = {
+        "status": "provider_read_completed",
+        "execution_state": "completed",
+        "partial_execution": False,
+        "state_uncertain": False,
+        "operator_review_required": False,
+        "retry_classification": "safe_to_rerun_read_only",
+        "idempotency_boundary": "read_only_provider_request",
+        "retry_boundary": "re-running may observe newer provider state but does not mutate resources",
+        "provider_reads": [
+            {
+                **provider_call,
+                "request_sent": True,
+                "response_received": True,
+            }
+        ],
+        "provider_mutations": [],
+    }
 
     manifest = create_manifest(
         action=command,
@@ -91,27 +109,11 @@ def create_inspect_manifest(
                     skipped_reason="read_only_inspection",
                 ),
                 "state_visibility": backup_state_visibility(public_backups),
+                "retry_recovery": retry_recovery_review(outcome, state_assessment),
             },
             "mutation_intent": intent,
             "state_assessment": state_assessment,
-            "outcome": {
-                "status": "provider_read_completed",
-                "execution_state": "completed",
-                "partial_execution": False,
-                "state_uncertain": False,
-                "operator_review_required": False,
-                "retry_classification": "safe_to_rerun_read_only",
-                "idempotency_boundary": "read_only_provider_request",
-                "retry_boundary": "re-running may observe newer provider state but does not mutate resources",
-                "provider_reads": [
-                    {
-                        **provider_call,
-                        "request_sent": True,
-                        "response_received": True,
-                    }
-                ],
-                "provider_mutations": [],
-            },
+            "outcome": outcome,
             "validation": {
                 "status": validation_status_for_state(state_assessment["status"]),
                 "checks": [

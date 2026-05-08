@@ -7,7 +7,7 @@ from typing import Any
 from .config import BackupLabConfig
 from .linode_api import DEFAULT_PROVIDER_API_VERSION
 from .manifest import create_manifest
-from .review import mutation_review, not_read_state_visibility, provider_call_review
+from .review import mutation_review, not_read_state_visibility, provider_call_review, retry_recovery_review
 
 SNAPSHOT_OPERATION = "snapshot_request"
 SNAPSHOT_REPLACEMENT_SIDE_EFFECT = "replaces_existing_manual_snapshot_for_linode"
@@ -104,6 +104,8 @@ def create_plan_manifest(
         planned_operation=SNAPSHOT_OPERATION,
         reason="dry-run planning only",
     )
+    state_assessment = unverified_provider_state_assessment()
+    outcome = no_runtime_outcome()
     manifest.update(
         {
             "command": {
@@ -135,10 +137,11 @@ def create_plan_manifest(
                 "state_visibility": not_read_state_visibility(
                     skipped_states=["provider_mutation", "provider_read"],
                 ),
+                "retry_recovery": retry_recovery_review(outcome, state_assessment),
             },
             "mutation_intent": intent,
-            "state_assessment": unverified_provider_state_assessment(),
-            "outcome": no_runtime_outcome(),
+            "state_assessment": state_assessment,
+            "outcome": outcome,
             "validation": {
                 "status": "passed_with_unverified_provider_state",
                 "checks": [
