@@ -59,6 +59,19 @@ def backup_state_visibility(public_backups: list[JsonMap]) -> JsonMap:
     }
 
 
+def retry_recovery_review(outcome: JsonMap, state_assessment: JsonMap) -> JsonMap:
+    """Classify retry posture without implying automatic retry behavior."""
+
+    return {
+        "command_retry_classification": _command_retry_classification(outcome),
+        "provider_state_classification": _provider_state_classification(state_assessment),
+        "automatic_retry": "not_performed",
+        "runtime_operator_review_required": bool(outcome.get("operator_review_required")),
+        "runtime_state_uncertain": bool(outcome.get("state_uncertain")),
+        "provider_state_uncertain": bool(state_assessment.get("uncertain_state")),
+    }
+
+
 def not_read_state_visibility(*, skipped_states: list[str]) -> JsonMap:
     return {
         "provider_backup_state": "not_read",
@@ -69,6 +82,30 @@ def not_read_state_visibility(*, skipped_states: list[str]) -> JsonMap:
 
 def _missing_count(items: list[JsonMap], key: str) -> int:
     return sum(1 for item in items if item.get(key) is None)
+
+
+def _command_retry_classification(outcome: JsonMap) -> str:
+    if outcome.get("operator_review_required"):
+        return "operator_review_required"
+    if outcome.get("state_uncertain"):
+        return "state_uncertain"
+    retry_classification = outcome.get("retry_classification")
+    if retry_classification in {"safe_to_rerun_no_provider_request", "safe_to_rerun_read_only"}:
+        return "safe_to_retry"
+    return "operator_review_required"
+
+
+def _provider_state_classification(state_assessment: JsonMap) -> str:
+    state_status = state_assessment.get("status")
+    if state_status == "provider_local_match":
+        return "safe_to_retry"
+    if state_status == "unverified_provider_state":
+        return "refresh_before_retry"
+    if state_status == "provider_local_mismatch":
+        return "operator_review_required"
+    if state_status == "uncertain_provider_state":
+        return "state_uncertain"
+    return "operator_review_required"
 
 
 def _string_or_unknown(value: Any) -> str:
