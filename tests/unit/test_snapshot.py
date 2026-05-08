@@ -21,6 +21,12 @@ class SnapshotTests(unittest.TestCase):
         self.assertEqual(manifest["command"]["provider_calls"], {"occurred": False, "items": []})
         self.assertEqual(manifest["safety"]["provider_mutations"], "not_performed")
         self.assertEqual(manifest["mutation_intent"]["execution_requested"], False)
+        self.assertEqual(manifest["state_assessment"]["provider_local_match"], "not_checked")
+        self.assertIs(manifest["state_assessment"]["refresh_before_mutation"]["required"], True)
+        self.assertEqual(manifest["outcome"]["execution_state"], "not_started")
+        self.assertEqual(manifest["outcome"]["retry_classification"], "safe_to_rerun_no_provider_request")
+        self.assertEqual(manifest["outcome"]["idempotency_boundary"], "no_provider_request_sent")
+        self.assertIs(manifest["outcome"]["operator_review_required"], False)
         self.assertEqual(manifest["planned_actions"][0]["effect"], "dry_run_only")
         self.assertEqual(
             manifest["planned_actions"][0]["provider_documented_side_effects"],

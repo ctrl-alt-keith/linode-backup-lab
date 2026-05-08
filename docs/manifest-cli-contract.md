@@ -26,10 +26,22 @@ contract.
   mutations as `not_performed`.
 - `validation.status` records local config and command precondition checks. It
   is not a provider resource health verdict, provider completion report, or
-  mutation gate.
+  mutation gate. Advisory statuses such as
+  `passed_with_unverified_provider_state`, `passed_with_uncertain_provider_state`,
+  and `passed_with_drift_advisory` still mean the local command checks passed;
+  they surface stale/drift risk for operator review.
+- `state_assessment` records advisory local-vs-provider state visibility. Plan
+  and snapshot dry-runs report `unverified_provider_state` because they do not
+  perform provider reads. Inspect reports a fresh provider read and compares the
+  configured snapshot label to the current provider snapshot label without
+  emitting either raw label.
 - `outcome` records runtime completion reporting separately from validation.
   Current dry-run plans report `not_executed`. `inspect` reports
   `provider_read_completed` only after the read-only provider request returns.
+  Outcome objects also report `execution_state`, `partial_execution`,
+  `state_uncertain`, `operator_review_required`, `retry_classification`,
+  `idempotency_boundary`, and `retry_boundary` so operators do not have to infer
+  retry posture from a status string.
 - `review` is a concise operator-facing packet derived from the detailed
   manifest fields. It summarizes provider calls, mutation posture, and skipped
   or unknown normalized backup state for review. It is reporting metadata only,
@@ -73,11 +85,47 @@ previous manual snapshot for that Linode, so the first live mutation manifest
 must continue to surface that replacement side effect before execution can be
 allowed. Snapshot manifests must not imply append-only manual snapshot history.
 
-## Mutation Outcome Vocabulary
+Plan and snapshot dry-runs also report provider state as unverified because
+they intentionally avoid live provider reads. Their `state_assessment` marks
+stale metadata as possible and includes refresh-before-mutation guidance. This
+is advisory reporting only; no command currently uses it to perform or block a
+provider mutation.
+
+## Drift And Stale-State Visibility
+
+`inspect` is the only current command that refreshes provider backup state. Its
+`state_assessment` reports whether a current provider snapshot is present,
+whether a snapshot is in progress, whether the configured snapshot label matches
+the current provider snapshot label, and whether local metadata appears stale.
+Raw labels remain redacted from the emitted report.
+
+Possible inspect states are:
+
+- `provider_local_match`: the current provider snapshot label matches the
+  configured snapshot label.
+- `provider_local_mismatch`: the fresh provider read shows no matching current
+  snapshot, which means local config and provider state diverge or local
+  metadata is stale.
+- `uncertain_provider_state`: the fresh provider read cannot support a stable
+  comparison, such as when a snapshot is in progress or a current snapshot label
+  is unavailable.
+
+All current drift states are advisory-first. They improve review visibility and
+refresh guidance without adding synchronization, automatic remediation, or
+mutation behavior.
+
+## Outcome State And Retry Vocabulary
+
+Current commands expose only non-mutating retry classifications:
+
+- `safe_to_rerun_no_provider_request`: no provider request was sent. Re-running
+  repeats local validation and manifest generation only.
+- `safe_to_rerun_read_only`: a read-only provider request completed. Re-running
+  may observe newer provider state but does not mutate resources.
 
 No command performs live mutation yet. Before the first mutation path is added,
 its report vocabulary needs to distinguish these states without turning the
-manifest into a run database or orchestration protocol:
+manifest into a run database, remediation workflow, or orchestration protocol:
 
 - `request_not_sent`: validation or safety checks prevented a provider mutation
   request before transport.
@@ -93,6 +141,12 @@ manifest into a run database or orchestration protocol:
   with an error response or transport error.
 - `ambiguous_outcome`: the command cannot prove whether the provider received
   or accepted the mutation request.
+
+Any after-request mutation failure, partial execution, or `ambiguous_outcome`
+must set `state_uncertain: true` and `operator_review_required: true` unless the
+command has explicit provider evidence for a stronger final state. Retry
+classification is advisory reporting only; it must not trigger automatic
+recovery or remediation.
 
 ## Run Identity And Persistence
 

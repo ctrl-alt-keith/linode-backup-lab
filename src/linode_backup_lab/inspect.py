@@ -32,6 +32,7 @@ def create_inspect_manifest(
     backups = client.list_backups(config.target.linode_id)
     public_backups = [public_safe_backup_state(backup) for backup in backups]
     summary = inspect_summary(public_backups)
+    state_assessment = provider_local_state_assessment(config, backups)
     provider_call = {
         "kind": "read",
         "method": "GET",
@@ -92,8 +93,16 @@ def create_inspect_manifest(
                 "state_visibility": backup_state_visibility(public_backups),
             },
             "mutation_intent": intent,
+            "state_assessment": state_assessment,
             "outcome": {
                 "status": "provider_read_completed",
+                "execution_state": "completed",
+                "partial_execution": False,
+                "state_uncertain": False,
+                "operator_review_required": False,
+                "retry_classification": "safe_to_rerun_read_only",
+                "idempotency_boundary": "read_only_provider_request",
+                "retry_boundary": "re-running may observe newer provider state but does not mutate resources",
                 "provider_reads": [
                     {
                         **provider_call,
@@ -104,13 +113,15 @@ def create_inspect_manifest(
                 "provider_mutations": [],
             },
             "validation": {
-                "status": "passed",
+                "status": validation_status_for_state(state_assessment["status"]),
                 "checks": [
                     "explicit_config_path",
                     "config_schema_version_supported",
                     "target_linode_id_valid",
                     "target_snapshot_label_valid",
                     "linode_token_environment_present",
+                    "provider_state_refreshed",
+                    "provider_local_snapshot_match_checked",
                 ],
             },
             "safety": {
@@ -134,6 +145,84 @@ def create_inspect_manifest(
         }
     )
     return manifest
+
+
+def provider_local_state_assessment(config: BackupLabConfig, backups: list[JsonMap]) -> JsonMap:
+    current_snapshots = [
+        backup
+        for backup in backups
+        if backup.get("backup_kind") == "snapshot" and backup.get("snapshot_state") == "current"
+    ]
+    in_progress_present = any(
+        backup.get("backup_kind") == "snapshot" and backup.get("snapshot_state") == "in_progress"
+        for backup in backups
+    )
+    comparable_current_labels = [
+        backup.get("backup_label") for backup in current_snapshots if isinstance(backup.get("backup_label"), str)
+    ]
+    configured_label_matches_current = config.target.snapshot_label in comparable_current_labels
+
+    if in_progress_present:
+        status = "uncertain_provider_state"
+        provider_local_match = "unknown"
+        reason = "snapshot_in_progress_present"
+        stale_detected = False
+        stale_possible = True
+    elif not current_snapshots:
+        status = "provider_local_mismatch"
+        provider_local_match = "mismatched"
+        reason = "current_snapshot_not_present"
+        stale_detected = True
+        stale_possible = False
+    elif configured_label_matches_current:
+        status = "provider_local_match"
+        provider_local_match = "matched"
+        reason = "current_snapshot_label_matches_config"
+        stale_detected = False
+        stale_possible = False
+    elif not comparable_current_labels:
+        status = "uncertain_provider_state"
+        provider_local_match = "unknown"
+        reason = "current_snapshot_label_not_reported"
+        stale_detected = False
+        stale_possible = True
+    else:
+        status = "provider_local_mismatch"
+        provider_local_match = "mismatched"
+        reason = "current_snapshot_label_differs_from_config"
+        stale_detected = True
+        stale_possible = False
+
+    return {
+        "status": status,
+        "source": "fresh_provider_read",
+        "provider_read_performed": True,
+        "provider_local_match": provider_local_match,
+        "snapshot_current_present": bool(current_snapshots),
+        "snapshot_in_progress_present": in_progress_present,
+        "configured_snapshot_label_matches_current": configured_label_matches_current
+        if comparable_current_labels and not in_progress_present
+        else None,
+        "stale_metadata": {
+            "detected": stale_detected,
+            "possible": stale_possible,
+            "reason": reason,
+        },
+        "uncertain_state": status == "uncertain_provider_state",
+        "refresh_before_mutation": {
+            "required": True,
+            "command": "inspect",
+            "reason": "refresh provider backup state immediately before any future mutation path is allowed",
+        },
+    }
+
+
+def validation_status_for_state(state_status: object) -> str:
+    if state_status == "provider_local_match":
+        return "passed"
+    if state_status == "provider_local_mismatch":
+        return "passed_with_drift_advisory"
+    return "passed_with_uncertain_provider_state"
 
 
 def public_safe_backup_state(backup: JsonMap) -> JsonMap:
