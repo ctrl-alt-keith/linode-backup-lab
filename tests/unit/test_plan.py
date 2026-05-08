@@ -74,6 +74,30 @@ class PlanTests(unittest.TestCase):
                         ],
                     }
                 ],
+                "review": {
+                    "provider_calls": {
+                        "occurred": False,
+                        "total": 0,
+                        "by_kind": {},
+                        "operations": [],
+                    },
+                    "mutations": {
+                        "planned_operation": "snapshot_request",
+                        "execution_requested": False,
+                        "execution_allowed": False,
+                        "execution_performed": False,
+                        "provider_mutations": "not_performed",
+                        "skipped_reason": "dry_run_only",
+                    },
+                    "state_visibility": {
+                        "provider_backup_state": "not_read",
+                        "skipped_states": [
+                            "provider_mutation",
+                            "provider_read",
+                        ],
+                        "unknown_fields": {},
+                    },
+                },
                 "mutation_intent": {
                     "planned_operation": "snapshot_request",
                     "execution_requested": False,

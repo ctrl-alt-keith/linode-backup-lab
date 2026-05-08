@@ -99,6 +99,38 @@ class InspectTests(unittest.TestCase):
         self.assertEqual(manifest["inspection_summary"]["backup_count"], 2)
         self.assertEqual(manifest["inspection_summary"]["status_counts"], {"running": 1, "successful": 1})
         self.assertIs(manifest["inspection_summary"]["snapshot_in_progress_present"], True)
+        self.assertEqual(
+            manifest["review"],
+            {
+                "provider_calls": {
+                    "occurred": True,
+                    "total": 1,
+                    "by_kind": {"read": 1},
+                    "operations": ["list_backups"],
+                },
+                "mutations": {
+                    "planned_operation": None,
+                    "execution_requested": False,
+                    "execution_allowed": False,
+                    "execution_performed": False,
+                    "provider_mutations": "not_performed",
+                    "skipped_reason": "read_only_inspection",
+                },
+                "state_visibility": {
+                    "provider_backup_state": "read",
+                    "skipped_states": ["provider_mutation"],
+                    "unknown_fields": {
+                        "available": 0,
+                        "backup_kind": 0,
+                        "backup_status": 0,
+                        "config_count": 0,
+                        "disk_count": 0,
+                        "provider_type": 0,
+                        "snapshot_state_for_snapshot": 0,
+                    },
+                },
+            },
+        )
         self.assertEqual(manifest["normalized_backup_state"][0]["disk_count"], 2)
         self.assertEqual(manifest["normalized_backup_state"][0]["backup_id"]["validated_as"], "provider_backup_id")
         self.assertNotIn("112233", manifest_json)
@@ -118,6 +150,48 @@ class InspectTests(unittest.TestCase):
         self.assertIn("status", manifest["provider_documented_fields"]["backup_record"])
         self.assertIn("snapshot.current", manifest["provider_documented_fields"]["collection"])
         self.assertIn("normalized_backup_state", manifest)
+
+    def test_inspect_review_counts_unknown_normalized_state(self) -> None:
+        class UnknownStateClient:
+            provider_api_version = "v4"
+
+            def list_backups(self, linode_id: int) -> list[dict[str, object]]:
+                return [
+                    {
+                        "backup_id": None,
+                        "backup_label": None,
+                        "backup_status": None,
+                        "backup_kind": "snapshot",
+                        "snapshot_state": None,
+                        "provider_type": None,
+                        "available": None,
+                        "created_at": None,
+                        "finished_at": None,
+                        "updated_at": None,
+                        "config_count": None,
+                        "disk_count": None,
+                    }
+                ]
+
+        config = BackupLabConfig(
+            schema_version="1",
+            target=TargetConfig(linode_id=123, snapshot_label="pre-upgrade"),
+        )
+
+        manifest = create_inspect_manifest(config, client=UnknownStateClient())
+
+        self.assertEqual(
+            manifest["review"]["state_visibility"]["unknown_fields"],
+            {
+                "available": 1,
+                "backup_kind": 0,
+                "backup_status": 1,
+                "config_count": 1,
+                "disk_count": 1,
+                "provider_type": 1,
+                "snapshot_state_for_snapshot": 1,
+            },
+        )
 
 
 if __name__ == "__main__":

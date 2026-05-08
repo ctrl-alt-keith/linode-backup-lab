@@ -7,6 +7,7 @@ from typing import Any
 from .config import BackupLabConfig
 from .linode_api import DEFAULT_PROVIDER_API_VERSION
 from .manifest import create_manifest
+from .review import mutation_review, not_read_state_visibility, provider_call_review
 
 SNAPSHOT_OPERATION = "snapshot_request"
 SNAPSHOT_REPLACEMENT_SIDE_EFFECT = "replaces_existing_manual_snapshot_for_linode"
@@ -71,12 +72,17 @@ def create_plan_manifest(
         run_id=run_id,
         created_at=created_at,
     )
+    provider_calls = no_provider_calls()
+    intent = mutation_intent(
+        planned_operation=SNAPSHOT_OPERATION,
+        reason="dry-run planning only",
+    )
     manifest.update(
         {
             "command": {
                 "name": command,
                 "config_source": "explicit",
-                "provider_calls": no_provider_calls(),
+                "provider_calls": provider_calls,
             },
             "config": {
                 "schema_version": config.schema_version,
@@ -92,10 +98,18 @@ def create_plan_manifest(
                     "provider_documented_side_effects": [SNAPSHOT_REPLACEMENT_SIDE_EFFECT],
                 }
             ],
-            "mutation_intent": mutation_intent(
-                planned_operation=SNAPSHOT_OPERATION,
-                reason="dry-run planning only",
-            ),
+            "review": {
+                "provider_calls": provider_call_review(provider_calls),
+                "mutations": mutation_review(
+                    intent,
+                    provider_mutations="not_performed",
+                    skipped_reason="dry_run_only",
+                ),
+                "state_visibility": not_read_state_visibility(
+                    skipped_states=["provider_mutation", "provider_read"],
+                ),
+            },
+            "mutation_intent": intent,
             "outcome": no_runtime_outcome(),
             "validation": {
                 "status": "passed",

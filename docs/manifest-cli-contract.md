@@ -30,6 +30,10 @@ contract.
 - `outcome` records runtime completion reporting separately from validation.
   Current dry-run plans report `not_executed`. `inspect` reports
   `provider_read_completed` only after the read-only provider request returns.
+- `review` is a concise operator-facing packet derived from the detailed
+  manifest fields. It summarizes provider calls, mutation posture, and skipped
+  or unknown normalized backup state for review. It is reporting metadata only,
+  not orchestration state.
 - `safety` records decisions made by the command, including environment-only
   credentials, whether provider reads or mutations occurred, redaction posture,
   and cleanup state.
@@ -104,6 +108,12 @@ Inspect output is diagnostic reporting output. It summarizes public-safe
 provider read results for review and debugging. It must not be treated as an
 automatic control-loop input, desired-state signal, or mutation gate unless a
 future design explicitly introduces and documents that behavior.
+
+The `review.state_visibility.unknown_fields` counts missing normalized provider
+fields after redaction. For snapshot backups, `snapshot_state_for_snapshot`
+counts snapshot records whose current/in-progress state was not known. Dry-run
+commands do not read provider backup state, so their review packet reports
+`provider_backup_state: not_read` and lists skipped read/mutation states.
 
 ## CLI Exit Codes
 
