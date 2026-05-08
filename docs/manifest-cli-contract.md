@@ -30,6 +30,10 @@ contract.
 - `outcome` records runtime completion reporting separately from validation.
   Current dry-run plans report `not_executed`. `inspect` reports
   `provider_read_completed` only after the read-only provider request returns.
+  Outcome objects also report `execution_state`, `partial_execution`,
+  `state_uncertain`, `operator_review_required`, `retry_classification`,
+  `idempotency_boundary`, and `retry_boundary` so operators do not have to infer
+  retry posture from a status string.
 - `safety` records decisions made by the command, including environment-only
   credentials, whether provider reads or mutations occurred, redaction posture,
   and cleanup state.
@@ -69,11 +73,18 @@ previous manual snapshot for that Linode, so the first live mutation manifest
 must continue to surface that replacement side effect before execution can be
 allowed. Snapshot manifests must not imply append-only manual snapshot history.
 
-## Mutation Outcome Vocabulary
+## Outcome State And Retry Vocabulary
+
+Current commands expose only non-mutating retry classifications:
+
+- `safe_to_rerun_no_provider_request`: no provider request was sent. Re-running
+  repeats local validation and manifest generation only.
+- `safe_to_rerun_read_only`: a read-only provider request completed. Re-running
+  may observe newer provider state but does not mutate resources.
 
 No command performs live mutation yet. Before the first mutation path is added,
 its report vocabulary needs to distinguish these states without turning the
-manifest into a run database or orchestration protocol:
+manifest into a run database, remediation workflow, or orchestration protocol:
 
 - `request_not_sent`: validation or safety checks prevented a provider mutation
   request before transport.
@@ -89,6 +100,12 @@ manifest into a run database or orchestration protocol:
   with an error response or transport error.
 - `ambiguous_outcome`: the command cannot prove whether the provider received
   or accepted the mutation request.
+
+Any after-request mutation failure, partial execution, or `ambiguous_outcome`
+must set `state_uncertain: true` and `operator_review_required: true` unless the
+command has explicit provider evidence for a stronger final state. Retry
+classification is advisory reporting only; it must not trigger automatic
+recovery or remediation.
 
 ## Run Identity And Persistence
 

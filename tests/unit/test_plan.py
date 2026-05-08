@@ -83,6 +83,13 @@ class PlanTests(unittest.TestCase):
                 },
                 "outcome": {
                     "status": "not_executed",
+                    "execution_state": "not_started",
+                    "partial_execution": False,
+                    "state_uncertain": False,
+                    "operator_review_required": False,
+                    "retry_classification": "safe_to_rerun_no_provider_request",
+                    "idempotency_boundary": "no_provider_request_sent",
+                    "retry_boundary": "re-running repeats local validation and manifest generation only",
                     "provider_reads": [],
                     "provider_mutations": [],
                 },
