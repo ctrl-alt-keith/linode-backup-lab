@@ -65,10 +65,13 @@ snapshot_label = "pre-upgrade"
 
 The plan command emits a deterministic JSON manifest that records the command,
 dry-run state, config schema version, provider API version, planned snapshot
-intent, validation checks, mutation intent, and safety decisions. It redacts raw
-target values such as `linode_id` and `snapshot_label`, while preserving
-presence and validation metadata for review. It does not read from Linode,
-mutate Linode resources, require `LINODE_TOKEN`, or perform cleanup.
+intent, validation checks, mutation intent, state assessment, and safety
+decisions. It redacts raw target values such as `linode_id` and
+`snapshot_label`, while preserving presence and validation metadata for review.
+It does not read from Linode, mutate Linode resources, require `LINODE_TOKEN`,
+or perform cleanup. Because plan is local-only, its state assessment reports
+provider state as unverified and advises a fresh inspect before any future
+mutation path.
 
 Manifest field semantics, mutation-intent vocabulary, run identity boundaries,
 inspect output boundaries, and CLI exit codes are documented in
@@ -86,9 +89,11 @@ LINODE_TOKEN=... python -m linode_backup_lab inspect --config path/to/backup-lab
 the report. Inspect uses the configured target to read the Linode backups
 collection, then emits a public-safe JSON report with command metadata, project
 config schema version, provider API version, validation state, provider-read
-status, inspection summary, safety decisions, and normalized backup/snapshot
-state. Raw target values, backup identifiers, labels, provider timestamps,
-authorization headers, and raw provider response bodies are not emitted.
+status, inspection summary, state assessment, safety decisions, and normalized
+backup/snapshot state. Inspect reports whether the configured snapshot label
+matches the current provider snapshot label without emitting either label. Raw
+target values, backup identifiers, labels, provider timestamps, authorization
+headers, and raw provider response bodies are not emitted.
 
 Inspect is non-interactive and read-only. It does not create snapshots, enable
 or cancel backups, restore backups, mutate Linode resources, or perform cleanup.

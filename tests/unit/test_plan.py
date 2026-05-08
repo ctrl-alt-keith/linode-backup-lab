@@ -81,18 +81,37 @@ class PlanTests(unittest.TestCase):
                     "execution_performed": False,
                     "reason": "dry-run planning only",
                 },
+                "state_assessment": {
+                    "status": "unverified_provider_state",
+                    "source": "local_config_only",
+                    "provider_read_performed": False,
+                    "provider_local_match": "not_checked",
+                    "stale_metadata": {
+                        "detected": False,
+                        "possible": True,
+                        "reason": "dry-run planning does not read provider backup state",
+                    },
+                    "uncertain_state": True,
+                    "refresh_before_mutation": {
+                        "required": True,
+                        "command": "inspect",
+                        "reason": "read current provider backup state before any future mutation path is allowed",
+                    },
+                },
                 "outcome": {
                     "status": "not_executed",
                     "provider_reads": [],
                     "provider_mutations": [],
                 },
                 "validation": {
-                    "status": "passed",
+                    "status": "passed_with_unverified_provider_state",
                     "checks": [
                         "explicit_config_path",
                         "config_schema_version_supported",
                         "target_linode_id_valid",
                         "target_snapshot_label_valid",
+                        "provider_state_not_checked",
+                        "refresh_required_before_mutation",
                     ],
                 },
                 "safety": {
@@ -127,6 +146,18 @@ class PlanTests(unittest.TestCase):
         self.assertNotIn("987654321", manifest_json)
         self.assertNotIn("private-label-value", manifest_json)
         self.assertIn('"redacted": true', manifest_json)
+
+    def test_plan_manifest_reports_unverified_provider_state(self) -> None:
+        config = BackupLabConfig(
+            schema_version="1",
+            target=TargetConfig(linode_id=123, snapshot_label="pre-upgrade"),
+        )
+
+        manifest = create_plan_manifest(config)
+
+        self.assertEqual(manifest["state_assessment"]["status"], "unverified_provider_state")
+        self.assertIs(manifest["state_assessment"]["stale_metadata"]["possible"], True)
+        self.assertIs(manifest["state_assessment"]["refresh_before_mutation"]["required"], True)
 
 
 if __name__ == "__main__":
