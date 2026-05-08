@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable, Mapping
 from datetime import datetime, timezone
 from typing import Any
 from uuid import uuid4
@@ -10,6 +11,41 @@ from .linode_api import DEFAULT_PROVIDER_API_VERSION
 
 MANIFEST_SCHEMA_VERSION = "1"
 DRY_RUN_CREATED_AT = "not-recorded"
+BASE_MANIFEST_FIELDS = (
+    "schema_version",
+    "provider",
+    "run_id",
+    "created_at",
+    "action",
+    "dry_run",
+    "status",
+    "resources",
+)
+
+
+def manifest_required_view(
+    manifest: Mapping[str, Any],
+    required_fields: Iterable[str] = BASE_MANIFEST_FIELDS,
+) -> dict[str, Any]:
+    """Return a strict consumer's required subset while ignoring additions."""
+
+    fields = tuple(required_fields)
+    missing_fields = sorted(field for field in fields if field not in manifest)
+    if missing_fields:
+        missing = ", ".join(missing_fields)
+        raise KeyError(f"manifest missing required field(s): {missing}")
+
+    return {field: manifest[field] for field in fields}
+
+
+def manifest_additive_fields(
+    manifest: Mapping[str, Any],
+    known_fields: Iterable[str] = BASE_MANIFEST_FIELDS,
+) -> list[str]:
+    """Return sorted fields outside a consumer's known manifest field set."""
+
+    known = set(known_fields)
+    return sorted(field for field in manifest if field not in known)
 
 
 def create_manifest(

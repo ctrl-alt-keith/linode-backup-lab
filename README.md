@@ -73,8 +73,9 @@ or perform cleanup. Because plan is local-only, its state assessment reports
 provider state as unverified and advises a fresh inspect before any future
 mutation path.
 
-Manifest field semantics, mutation-intent vocabulary, run identity boundaries,
-inspect output boundaries, and CLI exit codes are documented in
+Manifest field semantics, additive-field compatibility guidance,
+mutation-intent vocabulary, run identity boundaries, inspect output boundaries,
+and CLI exit codes are documented in
 [`docs/manifest-cli-contract.md`](docs/manifest-cli-contract.md).
 
 ## Read-Only Inspect
