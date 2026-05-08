@@ -26,7 +26,15 @@ contract.
   mutations as `not_performed`.
 - `validation.status` records local config and command precondition checks. It
   is not a provider resource health verdict, provider completion report, or
-  mutation gate.
+  mutation gate. Advisory statuses such as
+  `passed_with_unverified_provider_state`, `passed_with_uncertain_provider_state`,
+  and `passed_with_drift_advisory` still mean the local command checks passed;
+  they surface stale/drift risk for operator review.
+- `state_assessment` records advisory local-vs-provider state visibility. Plan
+  and snapshot dry-runs report `unverified_provider_state` because they do not
+  perform provider reads. Inspect reports a fresh provider read and compares the
+  configured snapshot label to the current provider snapshot label without
+  emitting either raw label.
 - `outcome` records runtime completion reporting separately from validation.
   Current dry-run plans report `not_executed`. `inspect` reports
   `provider_read_completed` only after the read-only provider request returns.
@@ -72,6 +80,35 @@ Official Akamai/Linode docs describe manual snapshot creation as replacing the
 previous manual snapshot for that Linode, so the first live mutation manifest
 must continue to surface that replacement side effect before execution can be
 allowed. Snapshot manifests must not imply append-only manual snapshot history.
+
+Plan and snapshot dry-runs also report provider state as unverified because
+they intentionally avoid live provider reads. Their `state_assessment` marks
+stale metadata as possible and includes refresh-before-mutation guidance. This
+is advisory reporting only; no command currently uses it to perform or block a
+provider mutation.
+
+## Drift And Stale-State Visibility
+
+`inspect` is the only current command that refreshes provider backup state. Its
+`state_assessment` reports whether a current provider snapshot is present,
+whether a snapshot is in progress, whether the configured snapshot label matches
+the current provider snapshot label, and whether local metadata appears stale.
+Raw labels remain redacted from the emitted report.
+
+Possible inspect states are:
+
+- `provider_local_match`: the current provider snapshot label matches the
+  configured snapshot label.
+- `provider_local_mismatch`: the fresh provider read shows no matching current
+  snapshot, which means local config and provider state diverge or local
+  metadata is stale.
+- `uncertain_provider_state`: the fresh provider read cannot support a stable
+  comparison, such as when a snapshot is in progress or a current snapshot label
+  is unavailable.
+
+All current drift states are advisory-first. They improve review visibility and
+refresh guidance without adding synchronization, automatic remediation, or
+mutation behavior.
 
 ## Outcome State And Retry Vocabulary
 

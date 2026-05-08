@@ -61,6 +61,26 @@ def no_runtime_outcome() -> dict[str, Any]:
     }
 
 
+def unverified_provider_state_assessment() -> dict[str, Any]:
+    return {
+        "status": "unverified_provider_state",
+        "source": "local_config_only",
+        "provider_read_performed": False,
+        "provider_local_match": "not_checked",
+        "stale_metadata": {
+            "detected": False,
+            "possible": True,
+            "reason": "dry-run planning does not read provider backup state",
+        },
+        "uncertain_state": True,
+        "refresh_before_mutation": {
+            "required": True,
+            "command": "inspect",
+            "reason": "read current provider backup state before any future mutation path is allowed",
+        },
+    }
+
+
 def create_plan_manifest(
     config: BackupLabConfig,
     *,
@@ -103,14 +123,17 @@ def create_plan_manifest(
                 planned_operation=SNAPSHOT_OPERATION,
                 reason="dry-run planning only",
             ),
+            "state_assessment": unverified_provider_state_assessment(),
             "outcome": no_runtime_outcome(),
             "validation": {
-                "status": "passed",
+                "status": "passed_with_unverified_provider_state",
                 "checks": [
                     "explicit_config_path",
                     "config_schema_version_supported",
                     "target_linode_id_valid",
                     "target_snapshot_label_valid",
+                    "provider_state_not_checked",
+                    "refresh_required_before_mutation",
                 ],
             },
             "safety": {
