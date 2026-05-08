@@ -125,9 +125,21 @@ restore-path boundary.
 - Provider API versions, endpoint paths, and raw response structures stay in the
   API boundary.
 
+## Operator Review Boundaries
+
+Current reports are review artifacts. They can help an operator see what a
+command did, what it intentionally skipped, and what provider state was or was
+not refreshed. They do not schedule retries, perform recovery, authorize
+restore, reconcile provider state, or act as desired-state input.
+
+Retry/recovery review fields keep command retry safety separate from provider
+state posture. A command may be safe to rerun while still requiring a fresh
+inspect or operator review before any future mutation path.
+
 ## Scope
 
-Linode Backup Lab is for narrow validation and recovery workflow exploration:
+Linode Backup Lab is for narrow validation and restore-readiness workflow
+exploration:
 
 - backup validation
 - snapshot validation

@@ -56,6 +56,9 @@ Manifest `schema_version` records the baseline project manifest shape. Within a
 supported schema version, new fields may be added to top-level manifests or
 nested manifest objects when they preserve existing field names, meanings, and
 types. Additive reporting fields do not require a new version by themselves.
+This compatibility rule is intentionally narrow: it covers reporting additions,
+not provider behavior changes, restore contracts, state-store semantics, or
+automation protocols.
 
 Consumers that parse manifests with strict models should validate the fields
 they require, reject missing required fields or unsupported `schema_version`
@@ -148,12 +151,16 @@ into two intentionally separate classifications:
 - `command_retry_classification`: whether the command itself can be rerun. For
   current non-mutating commands this is `safe_to_retry`.
 - `provider_state_classification`: what the refreshed or unrefreshed provider
-  state implies before a future recovery-style retry or mutation attempt.
+  state implies before a future recovery-style retry or mutation attempt. This
+  is advisory state posture only; it does not change whether the current command
+  is safe to rerun.
 
 Provider-state classifications are:
 
 - `safe_to_retry`: a fresh read shows the current provider snapshot label
-  matches the configured snapshot label.
+  matches the configured snapshot label. This removes the current
+  label-drift advisory from a future retry decision, but it is not restore
+  authorization or mutation approval.
 - `refresh_before_retry`: provider state was not read by this command, so a
   fresh `inspect` should happen before any future recovery-style retry or
   mutation attempt.
