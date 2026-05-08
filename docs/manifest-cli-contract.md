@@ -50,6 +50,25 @@ contract.
   credentials, whether provider reads or mutations occurred, redaction posture,
   and cleanup state.
 
+## Compatibility For Strict Consumers
+
+Manifest `schema_version` records the baseline project manifest shape. Within a
+supported schema version, new fields may be added to top-level manifests or
+nested manifest objects when they preserve existing field names, meanings, and
+types. Additive reporting fields do not require a new version by themselves.
+
+Consumers that parse manifests with strict models should validate the fields
+they require, reject missing required fields or unsupported `schema_version`
+values, and ignore unknown fields by default. Consumers that need visibility
+into newly added reporting fields can compare a manifest object against their
+known field set and record the extra names as additive fields for review.
+
+The manifest helper exposes `BASE_MANIFEST_FIELDS`,
+`manifest_required_view()`, and `manifest_additive_fields()` for this pattern.
+The same approach applies to nested objects: keep a known field set for the
+object being consumed, validate that subset, and treat extra fields as
+extensions unless a future contract explicitly documents a breaking change.
+
 ## Mutation Intent
 
 `mutation_intent` separates four concepts that future mutation design must keep
