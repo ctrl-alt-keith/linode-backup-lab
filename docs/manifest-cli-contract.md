@@ -169,6 +169,30 @@ counts snapshot records whose current/in-progress state was not known. Dry-run
 commands do not read provider backup state, so their review packet reports
 `provider_backup_state: not_read` and lists skipped read/mutation states.
 
+## Restore Boundary
+
+No restore command or restore manifest contract exists yet. Current `plan`,
+`snapshot`, and `inspect` manifests must not be interpreted as restore
+preflight approval, restore lineage proof, or permission to perform a provider
+mutation. `backup_id`, source Linode identity, target Linode identity, target
+region, storage availability, overwrite intent, disk UUIDs, and configuration
+profile block-device assignments are not fully modeled by current public-safe
+reports.
+
+A future restore design must keep restore lineage explicit: the backup selected
+for restore needs a source Linode and provider backup identifier, and the
+restore target needs its own target Linode or new-Linode creation context.
+Snapshot labels and backup labels are review aids only; they are not unique
+restore selectors and must not replace provider identifiers in a restore
+contract.
+
+Restore collision and overwrite risks must be surfaced before execution is
+allowed. At minimum, a future restore report needs to distinguish same-Linode
+restore, new-Linode restore, overwrite and non-overwrite paths, unverified
+storage/region prerequisites, and side-by-side disk access risks caused by
+provider-preserved disk UUIDs. Modeling these risks must not add automatic
+restore execution, remediation, or cleanup.
+
 ## CLI Exit Codes
 
 - `0`: command succeeded and emitted a manifest.
