@@ -97,6 +97,14 @@ class PlanTests(unittest.TestCase):
                         ],
                         "unknown_fields": {},
                     },
+                    "retry_recovery": {
+                        "command_retry_classification": "safe_to_retry",
+                        "provider_state_classification": "refresh_before_retry",
+                        "automatic_retry": "not_performed",
+                        "runtime_operator_review_required": False,
+                        "runtime_state_uncertain": False,
+                        "provider_state_uncertain": True,
+                    },
                 },
                 "mutation_intent": {
                     "planned_operation": "snapshot_request",
@@ -189,6 +197,8 @@ class PlanTests(unittest.TestCase):
         self.assertEqual(manifest["state_assessment"]["status"], "unverified_provider_state")
         self.assertIs(manifest["state_assessment"]["stale_metadata"]["possible"], True)
         self.assertIs(manifest["state_assessment"]["refresh_before_mutation"]["required"], True)
+        self.assertEqual(manifest["review"]["retry_recovery"]["command_retry_classification"], "safe_to_retry")
+        self.assertEqual(manifest["review"]["retry_recovery"]["provider_state_classification"], "refresh_before_retry")
 
 
 if __name__ == "__main__":
