@@ -99,6 +99,16 @@ class CliTests(unittest.TestCase):
         self.assertEqual(raised.exception.code, 2)
         self.assertIn("invalid choice", stderr.getvalue())
 
+    def test_restore_command_is_not_implemented(self) -> None:
+        parser = build_parser()
+        stderr = StringIO()
+
+        with redirect_stderr(stderr), self.assertRaises(SystemExit) as raised:
+            parser.parse_args(["restore", "--config", "backup-lab.toml"])
+
+        self.assertEqual(raised.exception.code, 2)
+        self.assertIn("invalid choice", stderr.getvalue())
+
     def test_inspect_requires_explicit_config_path(self) -> None:
         parser = build_parser()
         stderr = StringIO()

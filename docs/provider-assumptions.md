@@ -1,6 +1,6 @@
 # Provider Assumptions
 
-Checked: 2026-05-07.
+Checked: 2026-05-08.
 
 Linode Backup Lab currently targets the Linode API `v4` provider surface by
 default. Linode's official API reference models backup endpoint URLs with an
@@ -61,6 +61,47 @@ its explicit mutation contract, and preserve public-safe reporting. Provider
 `POST` behavior remains deferred; no mutation client, mutation helper, restore
 helper, or mutation CLI exists yet.
 
+## Restore Path Modeling
+
+Official Akamai/Linode docs expose restore as a provider mutation, not as a
+read-only inspection path. The Restore a backup API operation is a `POST` from
+the source Linode backup path
+`/{apiVersion}/linode/instances/{linodeId}/backups/{backupId}/restore`; its
+request body requires the target `linode_id` and optionally accepts
+`overwrite`. That provider shape means a future restore design must preserve
+source Linode identity, selected backup identity, and target Linode identity as
+separate concepts. It must not infer restore lineage from a redacted manifest,
+configured snapshot label, target label match, or backup label match.
+
+The documented restore prerequisites are stricter than the current inspect
+report can prove. Restore to an existing Linode requires the target to be in the
+same data center as the backup and to have enough unallocated storage for the
+restored disks unless the operator chooses an overwrite path. Restore to a new
+Linode likewise stays in the backup's data center at creation time. The Create
+a Linode using a backup workflow additionally notes that only disks,
+configuration, and root password are restored from a backup; other optional
+Linode settings need separate review and reapplication.
+
+Restore is whole-disk/config recovery. The official restore guides describe
+restoring all data that existed on the backed-up disks at backup time, not a
+single file or directory selection. Any future restore-drill validation should
+model file recovery as an operator workflow after a restore, not as provider
+backup API behavior.
+
+Restore collision risk is also provider-documented. When a backup is restored,
+the restored disk can share the original disk UUID; mounting the original disk
+and corresponding restored disk at the same time can create a UUID collision
+where only one disk is selected and mounted. A future restore design must
+surface that collision risk before any same-Linode or side-by-side disk access
+workflow. This repository does not currently inspect disk UUIDs, configuration
+profile block-device assignments, free storage, target region, target plan, or
+overwrite intent.
+
+No restore command, restore manifest, restore provider client, restore
+preflight, restore execution, or restore automation exists in this bootstrap.
+Current reports can support operator review of visible backup/snapshot state,
+but they are not sufficient authorization or preflight evidence for restore.
+
 ## Snapshot Replacement Semantics
 
 Official Akamai/Linode docs describe manual snapshots as a single manual
@@ -83,8 +124,14 @@ not describe manual snapshots as append-only history.
   <https://techdocs.akamai.com/linode-api/reference/get-backup>
 - Linode API reference, Create a snapshot:
   <https://techdocs.akamai.com/linode-api/reference/post-snapshot>
+- Linode API reference, Restore a backup:
+  <https://techdocs.akamai.com/linode-api/reference/post-restore-backup>
 - Linode API workflow, Create a Linode using a backup:
   <https://techdocs.akamai.com/linode-api/reference/create-a-linode-using-a-backup>
+- Akamai Cloud Computing guide, Restore a backup to an existing Linode:
+  <https://techdocs.akamai.com/cloud-computing/docs/restore-a-backup-to-an-existing-compute-instance>
+- Akamai Cloud Computing guide, Restore a backup to a new Linode:
+  <https://techdocs.akamai.com/cloud-computing/docs/restore-a-backup-to-a-new-compute-instance>
 - Akamai Cloud Computing guide, Take a manual snapshot:
   <https://techdocs.akamai.com/cloud-computing/docs/take-a-manual-snapshot>
 

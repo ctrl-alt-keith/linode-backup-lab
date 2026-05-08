@@ -99,6 +99,20 @@ headers, and raw provider response bodies are not emitted.
 Inspect is non-interactive and read-only. It does not create snapshots, enable
 or cancel backups, restore backups, mutate Linode resources, or perform cleanup.
 
+## Restore Boundary
+
+Restore-drill validation is future conceptual scope only. This repository does
+not provide a restore command, restore preflight, restore manifest, restore
+provider client, or restore execution path.
+
+The current reports are not enough to authorize a restore. A future restore
+design must explicitly model the source Linode, selected provider backup,
+restore target, same-region and storage prerequisites, overwrite intent, and
+disk UUID collision risk before any live restore mutation is considered. See
+[`docs/provider-assumptions.md`](docs/provider-assumptions.md) and
+[`docs/manifest-cli-contract.md`](docs/manifest-cli-contract.md) for the current
+restore-path boundary.
+
 ## Safety Posture
 
 - Dry-run planning and inspection come before any provider mutation.
