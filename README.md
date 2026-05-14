@@ -130,10 +130,15 @@ local path in the manifest. The report marks provider calls and provider reads
 as not performed, and it labels state visibility as fixture replay rather than
 current provider state.
 
-Fixtures under `tests/fixtures/sanitized/` use synthetic placeholders and are
-safe for public tests and docs. Replay output is useful for checking report
-shape and inspect UX, but it is not evidence of live backup state and must not
-be used as restore approval, drift remediation input, or mutation preflight.
+Fixtures under `tests/fixtures/sanitized/` must contain only public-safe
+normalized backup values. Provider identifiers, labels, timestamps, URLs,
+headers, raw provider response bodies, and token material must be replaced with
+synthetic placeholders such as `SANITIZED_*` or omitted when the field is not
+needed. The replay loader rejects obvious raw provider fields and raw-looking
+fixture text as a lightweight guardrail; it is not provider validation. Replay
+output is useful for checking report shape and inspect UX, but it is not
+evidence of live backup state and must not be used as restore approval, drift
+remediation input, or mutation preflight.
 
 ## Restore Boundary
 

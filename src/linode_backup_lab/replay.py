@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 from .config import BackupLabConfig
@@ -11,6 +12,35 @@ from .linode_api import DEFAULT_PROVIDER_API_VERSION, DOCUMENTED_BACKUP_FIELDS, 
 from .manifest import create_manifest
 from .plan import mutation_intent, redacted_target_metadata
 from .review import backup_state_visibility, mutation_review, provider_call_review, retry_recovery_review
+
+PUBLIC_SAFE_PLACEHOLDER_PREFIX = "SANITIZED_"
+SENSITIVE_NORMALIZED_FIELDS = frozenset(
+    {
+        "backup_id",
+        "backup_label",
+        "created_at",
+        "finished_at",
+        "updated_at",
+    }
+)
+RAW_PROVIDER_FIELDS = frozenset(
+    {
+        "id",
+        "label",
+        "created",
+        "finished",
+        "updated",
+        "configs",
+        "disks",
+    }
+)
+UNSAFE_FIXTURE_PATTERNS = (
+    re.compile(r"https?://", re.IGNORECASE),
+    re.compile(r"\bAuthorization\b", re.IGNORECASE),
+    re.compile(r"\bBearer\s+", re.IGNORECASE),
+    re.compile(r"\bLINODE_TOKEN\b"),
+    re.compile(r"\d{4}-\d{2}-\d{2}T\d{2}:"),
+)
 
 
 def load_sanitized_inspect_fixture(path: Path) -> list[JsonMap]:
@@ -30,9 +60,47 @@ def load_sanitized_inspect_fixture(path: Path) -> list[JsonMap]:
     for index, item in enumerate(data):
         if not isinstance(item, dict):
             raise ValueError(f"inspect replay fixture item {index} must be a JSON object")
-        backups.append(dict(item))
+        backup = dict(item)
+        validate_public_safe_fixture_backup(backup, index=index)
+        backups.append(backup)
 
     return backups
+
+
+def validate_public_safe_fixture_backup(backup: JsonMap, *, index: int) -> None:
+    """Reject obvious raw provider material in a replay fixture record."""
+
+    raw_fields = sorted(str(key) for key in backup if key in RAW_PROVIDER_FIELDS)
+    if raw_fields:
+        joined = ", ".join(raw_fields)
+        raise ValueError(f"inspect replay fixture item {index} contains raw provider fields: {joined}")
+
+    for key, value in backup.items():
+        if key in SENSITIVE_NORMALIZED_FIELDS:
+            validate_sanitized_normalized_field(key, value, index=index)
+        validate_no_obviously_unsafe_fixture_value(value, index=index)
+
+
+def validate_sanitized_normalized_field(key: str, value: object, *, index: int) -> None:
+    if value is None:
+        return
+    if isinstance(value, str) and value.startswith(PUBLIC_SAFE_PLACEHOLDER_PREFIX):
+        return
+    raise ValueError(
+        f"inspect replay fixture item {index} field {key} must use a sanitized placeholder or null"
+    )
+
+
+def validate_no_obviously_unsafe_fixture_value(value: object, *, index: int) -> None:
+    if isinstance(value, str):
+        if any(pattern.search(value) for pattern in UNSAFE_FIXTURE_PATTERNS):
+            raise ValueError(f"inspect replay fixture item {index} contains unsafe raw-looking fixture text")
+    elif isinstance(value, dict):
+        for nested in value.values():
+            validate_no_obviously_unsafe_fixture_value(nested, index=index)
+    elif isinstance(value, list):
+        for nested in value:
+            validate_no_obviously_unsafe_fixture_value(nested, index=index)
 
 
 def create_replay_inspect_manifest(

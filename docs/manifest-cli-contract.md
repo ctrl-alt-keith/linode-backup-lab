@@ -180,6 +180,14 @@ manifest. It reports `command.provider_calls.occurred: false`,
 `provider_read.status: not_performed`, `safety.provider_reads: not_performed`,
 and `fixture_replay.live_provider_state_read: false`.
 
+Replay fixtures must contain only public-safe normalized backup values. Raw
+provider fields, provider identifiers, labels, timestamps, URLs, authorization
+headers, raw provider response bodies, and token material are outside the replay
+contract. Sensitive normalized fields should be `null` or use synthetic
+placeholders such as `SANITIZED_*`. The fixture loader rejects obvious raw
+provider fields and raw-looking fixture text as a lightweight safety check; it
+does not validate live provider semantics.
+
 Replay may compare the configured snapshot label to labels present in the
 fixture for local demonstration, but `state_assessment.source` is
 `sanitized_fixture_replay` and `provider_local_match` is

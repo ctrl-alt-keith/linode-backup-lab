@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+from tempfile import TemporaryDirectory
 import unittest
 
 from linode_backup_lab.config import BackupLabConfig, TargetConfig, load_config
@@ -191,6 +192,69 @@ class SanitizedFixtureTests(unittest.TestCase):
         self.assertNotIn("SANITIZED_BACKUP_ID_SNAPSHOT", report_json)
         self.assertNotIn("SANITIZED_SNAPSHOT_LABEL", report_json)
         self.assertNotIn("SANITIZED_PROVIDER_TIMESTAMP", report_json)
+
+    def test_replay_fixture_loader_rejects_unsanitized_sensitive_normalized_values(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            fixture_path = Path(tmpdir) / "unsafe-normalized.json"
+            fixture_path.write_text(
+                json.dumps(
+                    [
+                        {
+                            "backup_id": "SANITIZED_BACKUP_ID",
+                            "backup_label": "private-snapshot-label",
+                            "backup_status": "successful",
+                            "backup_kind": "snapshot",
+                            "snapshot_state": "current",
+                            "provider_type": "snapshot",
+                            "available": True,
+                            "created_at": "SANITIZED_PROVIDER_TIMESTAMP",
+                            "finished_at": "SANITIZED_PROVIDER_TIMESTAMP",
+                            "updated_at": "SANITIZED_PROVIDER_TIMESTAMP",
+                            "config_count": 1,
+                            "disk_count": 1,
+                        }
+                    ]
+                ),
+                encoding="utf-8",
+            )
+
+            with self.assertRaisesRegex(ValueError, "backup_label must use a sanitized placeholder"):
+                load_sanitized_inspect_fixture(fixture_path)
+
+    def test_replay_fixture_loader_rejects_raw_provider_shape_and_urls(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            raw_shape_path = Path(tmpdir) / "raw-provider-shape.json"
+            raw_shape_path.write_text(
+                json.dumps(
+                    [
+                        {
+                            "id": 123456,
+                            "label": "private-snapshot-label",
+                            "status": "successful",
+                            "type": "snapshot",
+                        }
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            raw_url_path = Path(tmpdir) / "raw-url.json"
+            raw_url_path.write_text(
+                json.dumps(
+                    [
+                        {
+                            "backup_id": "SANITIZED_BACKUP_ID",
+                            "backup_label": None,
+                            "provider_note": "https://api.linode.com/v4/linode/instances/123456/backups",
+                        }
+                    ]
+                ),
+                encoding="utf-8",
+            )
+
+            with self.assertRaisesRegex(ValueError, "contains raw provider fields"):
+                load_sanitized_inspect_fixture(raw_shape_path)
+            with self.assertRaisesRegex(ValueError, "unsafe raw-looking fixture text"):
+                load_sanitized_inspect_fixture(raw_url_path)
 
     def test_sanitized_fixtures_avoid_private_or_raw_provider_material(self) -> None:
         fixture_text = "\n".join(
