@@ -167,6 +167,56 @@ class LinodeApiTests(unittest.TestCase):
             },
         )
 
+    def test_normalize_backup_preserves_unknown_provider_values_without_raw_shape(self) -> None:
+        backup = normalize_backup(
+            {
+                "id": 654,
+                "status": "provider-added-state",
+                "type": "provider-added-kind",
+                "available": True,
+                "configs": [{"label": "boot"}, "legacy-config-name"],
+                "disks": [{"label": "root"}, {"size": 512}],
+            }
+        )
+
+        self.assertEqual(
+            backup,
+            {
+                "backup_id": 654,
+                "backup_label": None,
+                "backup_status": "provider-added-state",
+                "backup_kind": "provider-added-kind",
+                "snapshot_state": None,
+                "provider_type": "provider-added-kind",
+                "available": True,
+                "created_at": None,
+                "finished_at": None,
+                "updated_at": None,
+                "config_count": 2,
+                "disk_count": 2,
+            },
+        )
+        self.assertNotIn("status", backup)
+        self.assertNotIn("type", backup)
+        self.assertNotIn("configs", backup)
+        self.assertNotIn("disks", backup)
+
+    def test_normalize_backup_handles_missing_and_partial_nested_fields(self) -> None:
+        backup = normalize_backup(
+            {
+                "id": 655,
+                "status": "successful",
+                "configs": None,
+                "disks": [{"label": "root"}],
+            }
+        )
+
+        self.assertEqual(backup["backup_label"], None)
+        self.assertEqual(backup["backup_kind"], None)
+        self.assertEqual(backup["provider_type"], None)
+        self.assertEqual(backup["config_count"], None)
+        self.assertEqual(backup["disk_count"], 1)
+
     def test_normalize_backup_collection_flattens_provider_groups_and_snapshot_states(self) -> None:
         backups = normalize_backup_collection(
             {
@@ -184,6 +234,29 @@ class LinodeApiTests(unittest.TestCase):
             [(backup["backup_id"], backup["backup_kind"], backup["snapshot_state"]) for backup in backups],
             [(1, "automatic", None), (2, "snapshot", "current"), (3, "snapshot", "in_progress")],
         )
+
+    def test_normalize_backup_collection_tolerates_unusable_provider_groups(self) -> None:
+        backups = normalize_backup_collection(
+            {
+                "automatic": None,
+                "snapshot": {
+                    "current": [],
+                    "in_progress": {
+                        "id": 4,
+                        "label": None,
+                        "status": "provider-added-progress-state",
+                        "type": "provider-added-snapshot-kind",
+                    },
+                },
+            }
+        )
+
+        self.assertEqual(len(backups), 1)
+        self.assertEqual(backups[0]["backup_id"], 4)
+        self.assertEqual(backups[0]["backup_kind"], "snapshot")
+        self.assertEqual(backups[0]["snapshot_state"], "in_progress")
+        self.assertEqual(backups[0]["backup_status"], "provider-added-progress-state")
+        self.assertEqual(backups[0]["provider_type"], "provider-added-snapshot-kind")
 
 
 if __name__ == "__main__":

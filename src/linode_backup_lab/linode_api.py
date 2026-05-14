@@ -146,9 +146,11 @@ def normalize_backup_collection(raw: JsonMap) -> list[JsonMap]:
     """Normalize the Linode backups collection into stable backup records."""
 
     backups: list[JsonMap] = []
-    for item in raw.get("automatic", []):
-        if isinstance(item, dict):
-            backups.append(normalize_backup(item, backup_kind="automatic"))
+    automatic = raw.get("automatic")
+    if isinstance(automatic, list):
+        for item in automatic:
+            if isinstance(item, dict):
+                backups.append(normalize_backup(item, backup_kind="automatic"))
     snapshot = raw.get("snapshot")
     if isinstance(snapshot, dict):
         current = snapshot.get("current")
