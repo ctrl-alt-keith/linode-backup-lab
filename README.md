@@ -63,6 +63,12 @@ linode_id = 123456
 snapshot_label = "pre-upgrade"
 ```
 
+See [`examples/backup-lab.example.toml`](examples/backup-lab.example.toml) for
+a public-safe example file with synthetic placeholders. It is for understanding
+the explicit config shape for local dry-run planning and read-only inspection;
+it is not production safety guidance, restore authorization, or a credential
+storage pattern.
+
 The plan command emits a deterministic JSON manifest that records the command,
 dry-run state, config schema version, provider API version, planned snapshot
 intent, validation checks, mutation intent, state assessment, and safety

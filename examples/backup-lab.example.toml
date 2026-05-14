@@ -1,0 +1,16 @@
+# Public-safe example for local dry-run planning and read-only inspection.
+# The values below are synthetic placeholders. Copy this file to a private
+# local path and replace them before running against an account.
+#
+# Dry-run planning does not call Linode or require credentials:
+#   python -m linode_backup_lab plan --config examples/backup-lab.example.toml
+#
+# Read-only inspection performs a provider read and requires LINODE_TOKEN in
+# the environment. This example does not authorize restore or production
+# recovery.
+
+schema_version = "1"
+
+[target]
+linode_id = 1
+snapshot_label = "example-snapshot"
