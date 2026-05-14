@@ -115,7 +115,8 @@ The current reports are not enough to authorize a restore. A future restore
 design must explicitly model the source Linode, selected provider backup,
 restore target, same-region and storage prerequisites, overwrite intent, and
 disk UUID collision risk before any live restore mutation is considered. See
-[`docs/provider-assumptions.md`](docs/provider-assumptions.md) and
+[`docs/restore-drill-design.md`](docs/restore-drill-design.md),
+[`docs/provider-assumptions.md`](docs/provider-assumptions.md), and
 [`docs/manifest-cli-contract.md`](docs/manifest-cli-contract.md) for the current
 restore-path boundary.
 
