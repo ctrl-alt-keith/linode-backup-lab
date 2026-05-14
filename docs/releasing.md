@@ -2,7 +2,7 @@
 
 Linode Backup Lab uses a lightweight release-prep process. The repository is
 installable, smoke-testable, and changelog-driven, but release publishing stays
-manual and human-gated.
+manual and human-gated through explicit Makefile targets.
 
 ## Scope
 
@@ -86,12 +86,68 @@ repo-local pipx home and verifies `linode-backup-lab --help` and
 report that blocker instead of substituting a normal virtual environment
 install.
 
+## Release Lifecycle
+
+Run the final local release readiness check before asking a human to publish:
+
+```sh
+make release-check VERSION=0.1.0
+```
+
+This target verifies GitHub CLI availability and authentication, runs
+`make release-prep VERSION=0.1.0`, verifies that no local tag, remote tag, or
+GitHub release already exists for `v0.1.0`, and confirms the expected wheel and
+source distribution artifacts exist under `.release-smoke/dist/`.
+
+After the release PR is merged and local `main` is current with `origin/main`,
+the human-run publishing command is:
+
+```sh
+make release-publish VERSION=0.1.0
+```
+
+`release-publish` is the only Makefile target that performs the normal final
+release action. It requires `main`, a clean working tree, current
+`origin/main`, matching package and changelog versions, no existing tag, no
+existing GitHub release, and freshly generated release-prep artifacts. It then
+creates the annotated `v0.1.0` tag, pushes that tag, creates the GitHub release
+from the changelog notes, and attaches these release assets:
+
+- `.release-smoke/dist/linode_backup_lab-0.1.0.tar.gz`
+- `.release-smoke/dist/linode_backup_lab-0.1.0-py3-none-any.whl`
+
+If a release attempt is interrupted, inspect the partial state without mutating
+remote state:
+
+```sh
+make release-recover VERSION=0.1.0
+```
+
+This reports local tag state, remote tag state, GitHub release state, whether
+the expected wheel and source distribution artifacts are present, and any
+suggested recovery command.
+
+If the remote tag exists but the GitHub release is missing, recover by creating
+the release from the existing tag:
+
+```sh
+make release-create-from-tag VERSION=0.1.0
+```
+
+This recovery target verifies GitHub CLI authentication, verifies the remote tag
+exists, verifies the GitHub release does not already exist, runs release-prep to
+ensure the wheel and source distribution artifacts exist, and creates the
+GitHub release with those assets.
+
 ## Publishing Boundary
 
-This repository does not currently define a Makefile target or CI workflow that
-publishes to PyPI, creates a GitHub release, pushes a release tag, or performs
-provider-live release validation.
+Release publishing is intentionally human-gated. The repository defines
+Makefile targets for final tag and GitHub release publication, but no CI
+workflow runs those targets automatically.
 
-For a future first release, stop after release-prep validation and human review
-until an explicit publishing step is approved. Do not create tags, GitHub
-releases, or package-index uploads as part of routine release prep.
+Routine release prep stops at validation and human review. Do not create tags,
+GitHub releases, upload artifacts, publish to PyPI, or run provider-live release
+validation unless a human explicitly runs the relevant release target. This
+repository does not define PyPI publishing, provider-live release checks,
+restore execution, live snapshot execution, scheduling, automatic remediation,
+or desired-state management as part of release.
