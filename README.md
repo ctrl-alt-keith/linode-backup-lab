@@ -100,12 +100,15 @@ collection, then emits a public-safe JSON report with command metadata, project
 config schema version, provider API version, validation state, provider-read
 status, inspection summary, state assessment, safety decisions, and normalized
 backup/snapshot state. Inspect reports whether the configured snapshot label
-matches the current provider snapshot label without emitting either label. Raw
+matches the current manual snapshot slot label without emitting either label. Raw
 target values, backup identifiers, labels, provider timestamps, authorization
 headers, and raw provider response bodies are not emitted.
 
-Inspect is non-interactive and read-only. It does not create snapshots, enable
-or cancel backups, restore backups, mutate Linode resources, or perform cleanup.
+Inspect is non-interactive and read-only. Its drift fields compare the
+configured label only with the current manual snapshot slot visible in the
+backup-service read; they are not general backup health, restore readiness, or
+mutation approval. It does not create snapshots, enable or cancel backups,
+restore backups, mutate Linode resources, or perform cleanup.
 If the provider read fails after local inspect preconditions pass, inspect keeps
 the provider-failure exit code `1` and emits a public-safe JSON failure report.
 The failure report records only coarse failure metadata; it does not emit token
@@ -128,7 +131,7 @@ Replay is intentionally non-provider and non-credentialed. It requires explicit
 or read `LINODE_TOKEN`, does not issue provider reads, and does not record either
 local path in the manifest. The report marks provider calls and provider reads
 as not performed, and it labels state visibility as fixture replay rather than
-current provider state.
+live provider state.
 
 Fixtures under `tests/fixtures/sanitized/` must contain only public-safe
 normalized backup values. Provider identifiers, labels, timestamps, URLs,
@@ -137,8 +140,9 @@ synthetic placeholders such as `SANITIZED_*` or omitted when the field is not
 needed. The replay loader rejects obvious raw provider fields and raw-looking
 fixture text as a lightweight guardrail; it is not provider validation. Replay
 output is useful for checking report shape and inspect UX, but it is not
-evidence of live backup state and must not be used as restore approval, drift
-remediation input, or mutation preflight.
+evidence of live backup-service state or current manual snapshot-slot state and
+must not be used as restore approval, drift remediation input, or mutation
+preflight.
 
 ## Restore Boundary
 

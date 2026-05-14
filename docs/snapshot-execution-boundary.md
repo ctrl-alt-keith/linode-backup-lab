@@ -61,13 +61,15 @@ not reached, or attempted with uncertain provider outcome.
 
 Future snapshot execution must assume dry-run state can be stale. The operator
 should perform a fresh `inspect` before execution, and the execution report must
-record whether the command used fresh provider state, skipped the read, or could
-not establish stable provider state.
+record whether the command used fresh backup-service state, skipped the read,
+or could not establish stable manual snapshot-slot state.
 
 Fresh inspect guidance is advisory and review-oriented. It must not become an
-automatic reconciliation loop. If fresh provider state differs from local
-config, the command should surface the mismatch and require operator review
-instead of choosing whether local config or provider state wins.
+automatic reconciliation loop. If the fresh snapshot-slot comparison differs
+from local config, the command should surface the mismatch and require operator
+review instead of choosing whether local config or provider state wins. Fixture
+replay and older inspect manifests are review aids only; they are not fresh
+backup-service evidence for live execution.
 
 ## Manual Snapshot Replacement
 
