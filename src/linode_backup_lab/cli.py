@@ -6,6 +6,12 @@ import argparse
 import json
 import os
 import sys
+
+try:
+    import tomllib
+except ModuleNotFoundError:  # pragma: no cover - exercised only on Python 3.10
+    import tomli as tomllib  # type: ignore[no-redef]
+from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from typing import Callable, Mapping, Sequence, TextIO
 
@@ -15,21 +21,46 @@ from .linode_api import DEFAULT_PROVIDER_API_VERSION, LinodeApiClient, ProviderE
 from .plan import create_plan_manifest
 from .replay import create_replay_inspect_manifest, load_sanitized_inspect_fixture
 
+PACKAGE_NAME = "linode-backup-lab"
+
+
+def package_version() -> str:
+    try:
+        return version(PACKAGE_NAME)
+    except PackageNotFoundError:
+        pyproject_path = Path(__file__).resolve().parents[2] / "pyproject.toml"
+        pyproject = tomllib.loads(pyproject_path.read_text(encoding="utf-8"))
+        return str(pyproject["project"]["version"])
+
+
+def add_version_arg(parser: argparse.ArgumentParser, version_text: str) -> None:
+    parser.add_argument(
+        "--version",
+        action="version",
+        version=version_text,
+        help="Print the installed package version and exit.",
+    )
+
 
 def build_parser() -> argparse.ArgumentParser:
+    version_text = package_version()
     parser = argparse.ArgumentParser(prog="linode-backup-lab")
+    add_version_arg(parser, version_text)
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     plan_parser = subparsers.add_parser("plan", help="generate a dry-run plan manifest")
+    add_version_arg(plan_parser, version_text)
     plan_parser.add_argument("--config", required=True, type=Path, help="explicit path to a backup lab TOML config")
 
     inspect_parser = subparsers.add_parser("inspect", help="read provider backup state without mutating resources")
+    add_version_arg(inspect_parser, version_text)
     inspect_parser.add_argument("--config", required=True, type=Path, help="explicit path to a backup lab TOML config")
 
     replay_parser = subparsers.add_parser(
         "inspect-replay",
         help="replay inspect-style output from a sanitized fixture without provider access",
     )
+    add_version_arg(replay_parser, version_text)
     replay_parser.add_argument("--config", required=True, type=Path, help="explicit path to a backup lab TOML config")
     replay_parser.add_argument("--fixture", required=True, type=Path, help="explicit path to a sanitized backup fixture")
 

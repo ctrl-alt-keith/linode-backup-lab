@@ -15,7 +15,8 @@ class PackagingTests(unittest.TestCase):
             pyproject = tomllib.load(pyproject_file)
 
         project = pyproject["project"]
-        self.assertEqual(project["license"]["text"], "Apache-2.0")
+        self.assertEqual(project["license"], "Apache-2.0")
+        self.assertEqual(project["license-files"], ["LICENSE"])
         self.assertEqual(project["scripts"]["linode-backup-lab"], "linode_backup_lab.cli:main")
 
 

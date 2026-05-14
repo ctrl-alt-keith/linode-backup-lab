@@ -1,9 +1,10 @@
-from contextlib import redirect_stderr
+from contextlib import redirect_stderr, redirect_stdout
 from io import StringIO
 import json
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
+from unittest.mock import patch
 
 from linode_backup_lab.cli import build_parser, main
 from linode_backup_lab.linode_api import ProviderError
@@ -66,6 +67,35 @@ class FailingInspectClient:
 
 
 class CliTests(unittest.TestCase):
+    def test_version_prints_package_version_and_exits(self) -> None:
+        output = StringIO()
+
+        with patch("linode_backup_lab.cli.version", return_value="9.8.7") as package_version:
+            with redirect_stdout(output), self.assertRaises(SystemExit) as raised:
+                main(["--version"])
+
+        self.assertEqual(raised.exception.code, 0)
+        self.assertEqual(output.getvalue(), "9.8.7\n")
+        package_version.assert_called_once_with("linode-backup-lab")
+
+    def test_version_after_subcommand_prints_package_version_and_exits(self) -> None:
+        for command in ("plan", "inspect", "inspect-replay"):
+            with self.subTest(command=command):
+                output = StringIO()
+
+                with patch("linode_backup_lab.cli.version", return_value="9.8.7"):
+                    with redirect_stdout(output), self.assertRaises(SystemExit) as raised:
+                        main([command, "--version"])
+
+                self.assertEqual(raised.exception.code, 0)
+                self.assertEqual(output.getvalue(), "9.8.7\n")
+
+    def test_help_output_includes_version_flag(self) -> None:
+        with patch("linode_backup_lab.cli.version", return_value="9.8.7"):
+            help_output = build_parser().format_help()
+
+        self.assertIn("--version", help_output)
+
     def test_plan_requires_explicit_config_path(self) -> None:
         parser = build_parser()
         stderr = StringIO()
