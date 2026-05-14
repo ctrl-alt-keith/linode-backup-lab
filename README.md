@@ -124,6 +124,8 @@ restore-path boundary.
 - Dry-run planning and inspection come before any provider mutation.
 - Live mutations require explicit future command support and explicit operator
   opt-in.
+- Future live snapshot execution boundary notes are documented in
+  [`docs/snapshot-execution-boundary.md`](docs/snapshot-execution-boundary.md).
 - Public output should avoid tokens, authorization headers, raw provider
   response bodies, and unnecessary provider-identifying detail.
 - Manifests should remain deterministic enough to debug a run while using
