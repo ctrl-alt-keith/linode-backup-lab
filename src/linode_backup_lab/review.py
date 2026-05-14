@@ -40,12 +40,12 @@ def mutation_review(
     }
 
 
-def backup_state_visibility(public_backups: list[JsonMap]) -> JsonMap:
+def backup_state_visibility(public_backups: list[JsonMap], *, provider_backup_state: str = "read") -> JsonMap:
     """Count missing normalized state fields in public-safe backup records."""
 
     snapshot_backups = [backup for backup in public_backups if backup.get("backup_kind") == "snapshot"]
     return {
-        "provider_backup_state": "read",
+        "provider_backup_state": provider_backup_state,
         "skipped_states": ["provider_mutation"],
         "unknown_fields": {
             "available": _missing_count(public_backups, "available"),
@@ -104,6 +104,8 @@ def _provider_state_classification(state_assessment: JsonMap) -> str:
     if state_status == "provider_local_match":
         return "safe_to_retry"
     if state_status == "unverified_provider_state":
+        return "refresh_before_retry"
+    if state_status == "fixture_replayed":
         return "refresh_before_retry"
     if state_status == "provider_local_mismatch":
         return "operator_review_required"

@@ -13,6 +13,7 @@ from .config import ConfigError, load_config
 from .inspect import InspectClient, create_inspect_failure_manifest, create_inspect_manifest, require_linode_token
 from .linode_api import DEFAULT_PROVIDER_API_VERSION, LinodeApiClient, ProviderError
 from .plan import create_plan_manifest
+from .replay import create_replay_inspect_manifest, load_sanitized_inspect_fixture
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -24,6 +25,13 @@ def build_parser() -> argparse.ArgumentParser:
 
     inspect_parser = subparsers.add_parser("inspect", help="read provider backup state without mutating resources")
     inspect_parser.add_argument("--config", required=True, type=Path, help="explicit path to a backup lab TOML config")
+
+    replay_parser = subparsers.add_parser(
+        "inspect-replay",
+        help="replay inspect-style output from a sanitized fixture without provider access",
+    )
+    replay_parser.add_argument("--config", required=True, type=Path, help="explicit path to a backup lab TOML config")
+    replay_parser.add_argument("--fixture", required=True, type=Path, help="explicit path to a sanitized backup fixture")
 
     return parser
 
@@ -65,6 +73,9 @@ def main(
                 output.write("\n")
                 print(f"error: {exc}", file=error_output)
                 return 1
+        elif args.command == "inspect-replay":
+            fixture_backups = load_sanitized_inspect_fixture(args.fixture)
+            manifest = create_replay_inspect_manifest(config, fixture_backups=fixture_backups, command=args.command)
         else:
             parser.error(f"unsupported command: {args.command}")
     except ConfigError as exc:

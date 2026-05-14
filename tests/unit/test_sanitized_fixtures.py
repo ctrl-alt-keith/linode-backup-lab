@@ -1,9 +1,11 @@
 import json
 from pathlib import Path
+from tempfile import TemporaryDirectory
 import unittest
 
 from linode_backup_lab.config import BackupLabConfig, TargetConfig, load_config
 from linode_backup_lab.inspect import create_inspect_manifest
+from linode_backup_lab.replay import create_replay_inspect_manifest, load_sanitized_inspect_fixture
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -146,6 +148,113 @@ class SanitizedFixtureTests(unittest.TestCase):
         self.assertNotIn("SANITIZED_BACKUP_ID_SNAPSHOT", report_json)
         self.assertNotIn("SANITIZED_SNAPSHOT_LABEL", report_json)
         self.assertNotIn("SANITIZED_PROVIDER_TIMESTAMP", report_json)
+
+    def test_sanitized_provider_fixture_replays_without_provider_or_credentials(self) -> None:
+        backups = load_sanitized_inspect_fixture(SANITIZED_FIXTURE_DIR / "inspect-provider-backups.normalized.json")
+
+        config = BackupLabConfig(
+            schema_version="1",
+            target=TargetConfig(linode_id=1, snapshot_label="SANITIZED_SNAPSHOT_LABEL"),
+        )
+        report = create_replay_inspect_manifest(
+            config,
+            fixture_backups=backups,
+            run_id="sanitized-inspect-replay",
+            created_at="not-recorded",
+        )
+
+        self.assertEqual(report["action"], "inspect-replay")
+        self.assertEqual(report["status"], "replayed")
+        self.assertIs(report["dry_run"], True)
+        self.assertEqual(report["command"]["token_source"], "not_required")
+        self.assertEqual(report["command"]["fixture_source"], "explicit")
+        self.assertEqual(report["command"]["provider_calls"], {"occurred": False, "items": []})
+        self.assertEqual(report["provider_read"]["status"], "not_performed")
+        self.assertEqual(report["provider_read"]["replay_source"], "sanitized_fixture")
+        self.assertEqual(report["fixture_replay"]["source"], "sanitized_fixture")
+        self.assertIs(report["fixture_replay"]["provider_credentials_required"], False)
+        self.assertIs(report["fixture_replay"]["live_provider_state_read"], False)
+        self.assertIs(report["fixture_replay"]["provider_currentness_asserted"], False)
+        self.assertEqual(report["review"]["state_visibility"]["provider_backup_state"], "fixture_replay")
+        self.assertEqual(report["review"]["retry_recovery"]["provider_state_classification"], "refresh_before_retry")
+        self.assertEqual(report["state_assessment"]["status"], "fixture_replayed")
+        self.assertEqual(report["state_assessment"]["source"], "sanitized_fixture_replay")
+        self.assertIs(report["state_assessment"]["provider_read_performed"], False)
+        self.assertIs(report["state_assessment"]["fixture_local_match"], True)
+        self.assertIs(report["state_assessment"]["refresh_before_mutation"]["required"], True)
+        self.assertEqual(report["safety"]["credentials"], "not_required")
+        self.assertIs(report["safety"]["linode_token_required"], False)
+        self.assertEqual(report["safety"]["provider_reads"], "not_performed")
+        self.assertIs(report["safety"]["fixture_replay_only"], True)
+
+        report_json = json.dumps(report, sort_keys=True)
+        self.assertNotIn("SANITIZED_BACKUP_ID_AUTOMATIC", report_json)
+        self.assertNotIn("SANITIZED_BACKUP_ID_SNAPSHOT", report_json)
+        self.assertNotIn("SANITIZED_SNAPSHOT_LABEL", report_json)
+        self.assertNotIn("SANITIZED_PROVIDER_TIMESTAMP", report_json)
+
+    def test_replay_fixture_loader_rejects_unsanitized_sensitive_normalized_values(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            fixture_path = Path(tmpdir) / "unsafe-normalized.json"
+            fixture_path.write_text(
+                json.dumps(
+                    [
+                        {
+                            "backup_id": "SANITIZED_BACKUP_ID",
+                            "backup_label": "private-snapshot-label",
+                            "backup_status": "successful",
+                            "backup_kind": "snapshot",
+                            "snapshot_state": "current",
+                            "provider_type": "snapshot",
+                            "available": True,
+                            "created_at": "SANITIZED_PROVIDER_TIMESTAMP",
+                            "finished_at": "SANITIZED_PROVIDER_TIMESTAMP",
+                            "updated_at": "SANITIZED_PROVIDER_TIMESTAMP",
+                            "config_count": 1,
+                            "disk_count": 1,
+                        }
+                    ]
+                ),
+                encoding="utf-8",
+            )
+
+            with self.assertRaisesRegex(ValueError, "backup_label must use a sanitized placeholder"):
+                load_sanitized_inspect_fixture(fixture_path)
+
+    def test_replay_fixture_loader_rejects_raw_provider_shape_and_urls(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            raw_shape_path = Path(tmpdir) / "raw-provider-shape.json"
+            raw_shape_path.write_text(
+                json.dumps(
+                    [
+                        {
+                            "id": 123456,
+                            "label": "private-snapshot-label",
+                            "status": "successful",
+                            "type": "snapshot",
+                        }
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            raw_url_path = Path(tmpdir) / "raw-url.json"
+            raw_url_path.write_text(
+                json.dumps(
+                    [
+                        {
+                            "backup_id": "SANITIZED_BACKUP_ID",
+                            "backup_label": None,
+                            "provider_note": "https://api.linode.com/v4/linode/instances/123456/backups",
+                        }
+                    ]
+                ),
+                encoding="utf-8",
+            )
+
+            with self.assertRaisesRegex(ValueError, "contains raw provider fields"):
+                load_sanitized_inspect_fixture(raw_shape_path)
+            with self.assertRaisesRegex(ValueError, "unsafe raw-looking fixture text"):
+                load_sanitized_inspect_fixture(raw_url_path)
 
     def test_sanitized_fixtures_avoid_private_or_raw_provider_material(self) -> None:
         fixture_text = "\n".join(

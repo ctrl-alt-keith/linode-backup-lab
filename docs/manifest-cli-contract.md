@@ -17,6 +17,8 @@ contract.
 - `provider_read` records live read state when a command performs a provider
   read. Plan and snapshot dry-runs record provider reads as `not_performed` in
   command and safety metadata instead of inventing a provider-read object.
+  `inspect-replay` emits inspect-style backup state from an explicit sanitized
+  fixture and records `provider_read.status: not_performed`.
 - `command.provider_calls` is structured reporting metadata. `occurred` records
   whether any provider call was attempted, and `items` records each call's
   `kind`, `method`, and `operation` when calls occur. Callers should not parse
@@ -34,12 +36,15 @@ contract.
   and snapshot dry-runs report `unverified_provider_state` because they do not
   perform provider reads. Inspect reports a fresh provider read and compares the
   configured snapshot label to the current provider snapshot label without
-  emitting either raw label.
+  emitting either raw label. Inspect replay reports fixture-derived visibility
+  separately and does not claim that the fixture is current provider state.
 - `outcome` records runtime completion reporting separately from validation.
   Current dry-run plans report `not_executed`. `inspect` reports
   `provider_read_completed` only after the read-only provider request returns,
   or `provider_read_failed` when the provider read cannot return usable backup
   state.
+  `inspect-replay` reports `fixture_replay_completed` after reading a local
+  fixture and performing no provider request.
   Outcome objects also report `execution_state`, `partial_execution`,
   `state_uncertain`, `operator_review_required`, `retry_classification`,
   `idempotency_boundary`, and `retry_boundary` so operators do not have to infer
@@ -158,12 +163,45 @@ or mutation behavior. The failed provider state remains uncertain and must be
 refreshed with a future successful `inspect` before any future mutation path is
 allowed.
 
+## Inspect Replay
+
+`inspect-replay` is a non-live fixture path for generating inspect-style output
+from an explicit sanitized normalized-backup fixture:
+
+```sh
+python -m linode_backup_lab inspect-replay \
+  --config examples/backup-lab.example.toml \
+  --fixture tests/fixtures/sanitized/inspect-provider-backups.normalized.json
+```
+
+Replay does not read provider state, does not require `LINODE_TOKEN`, does not
+discover config or fixture paths, and does not record either path in the
+manifest. It reports `command.provider_calls.occurred: false`,
+`provider_read.status: not_performed`, `safety.provider_reads: not_performed`,
+and `fixture_replay.live_provider_state_read: false`.
+
+Replay fixtures must contain only public-safe normalized backup values. Raw
+provider fields, provider identifiers, labels, timestamps, URLs, authorization
+headers, raw provider response bodies, and token material are outside the replay
+contract. Sensitive normalized fields should be `null` or use synthetic
+placeholders such as `SANITIZED_*`. The fixture loader rejects obvious raw
+provider fields and raw-looking fixture text as a lightweight safety check; it
+does not validate live provider semantics.
+
+Replay may compare the configured snapshot label to labels present in the
+fixture for local demonstration, but `state_assessment.source` is
+`sanitized_fixture_replay` and `provider_local_match` is
+`not_evaluated_live`. A replay report is never evidence of current provider
+state. Before any future mutation path, operators must run live read-only
+`inspect` with an environment-provided `LINODE_TOKEN`.
+
 ## Outcome State And Retry Vocabulary
 
 Current commands expose only non-mutating retry classifications:
 
 - `safe_to_rerun_no_provider_request`: no provider request was sent. Re-running
-  repeats local validation and manifest generation only.
+  repeats local validation and manifest generation only. For `inspect-replay`,
+  re-running also reads the explicit local fixture again.
 - `safe_to_rerun_read_only`: a read-only provider request completed. Re-running
   may observe newer provider state but does not mutate resources.
 - `safe_to_rerun_read_only_after_provider_failure`: a read-only provider
@@ -278,7 +316,8 @@ restore execution, remediation, or cleanup.
   sanitized one-line error on stderr.
 - `2`: usage, config, value, or local precondition failure, including missing
   required options, invalid config, unsupported values, or a missing
-  environment-only credential required by the command.
+  environment-only credential required by the command. Invalid or unreadable
+  replay fixtures also return `2`.
 
 No mutation-specific exit codes exist yet because no command performs live
 mutations.

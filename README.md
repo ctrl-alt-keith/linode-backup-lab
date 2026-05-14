@@ -24,6 +24,7 @@ That installs the `linode-backup-lab` console script:
 ```sh
 linode-backup-lab plan --config path/to/backup-lab.toml
 LINODE_TOKEN=... linode-backup-lab inspect --config path/to/backup-lab.toml
+linode-backup-lab inspect-replay --config path/to/backup-lab.toml --fixture tests/fixtures/sanitized/inspect-provider-backups.normalized.json
 ```
 
 The module entry point remains supported:
@@ -31,6 +32,7 @@ The module entry point remains supported:
 ```sh
 python -m linode_backup_lab plan --config path/to/backup-lab.toml
 LINODE_TOKEN=... python -m linode_backup_lab inspect --config path/to/backup-lab.toml
+python -m linode_backup_lab inspect-replay --config path/to/backup-lab.toml --fixture tests/fixtures/sanitized/inspect-provider-backups.normalized.json
 ```
 
 From a local checkout, `pipx` can also install the command into an isolated
@@ -109,6 +111,34 @@ the provider-failure exit code `1` and emits a public-safe JSON failure report.
 The failure report records only coarse failure metadata; it does not emit token
 values, raw provider payloads, provider URLs, authorization headers, target
 values, backup identifiers, labels, or timestamps.
+
+## Inspect Replay From Sanitized Fixtures
+
+For documentation, tests, and local UI/debug workflows that must not contact
+Linode, replay inspect-style output from an explicit sanitized fixture:
+
+```sh
+python -m linode_backup_lab inspect-replay \
+  --config examples/backup-lab.example.toml \
+  --fixture tests/fixtures/sanitized/inspect-provider-backups.normalized.json
+```
+
+Replay is intentionally non-provider and non-credentialed. It requires explicit
+`--config` and `--fixture` paths, performs no config discovery, does not require
+or read `LINODE_TOKEN`, does not issue provider reads, and does not record either
+local path in the manifest. The report marks provider calls and provider reads
+as not performed, and it labels state visibility as fixture replay rather than
+current provider state.
+
+Fixtures under `tests/fixtures/sanitized/` must contain only public-safe
+normalized backup values. Provider identifiers, labels, timestamps, URLs,
+headers, raw provider response bodies, and token material must be replaced with
+synthetic placeholders such as `SANITIZED_*` or omitted when the field is not
+needed. The replay loader rejects obvious raw provider fields and raw-looking
+fixture text as a lightweight guardrail; it is not provider validation. Replay
+output is useful for checking report shape and inspect UX, but it is not
+evidence of live backup state and must not be used as restore approval, drift
+remediation input, or mutation preflight.
 
 ## Restore Boundary
 

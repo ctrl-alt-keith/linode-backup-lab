@@ -136,6 +136,17 @@ class CliTests(unittest.TestCase):
         self.assertEqual(raised.exception.code, 2)
         self.assertIn("--config", stderr.getvalue())
 
+    def test_inspect_replay_requires_explicit_config_and_fixture_paths(self) -> None:
+        parser = build_parser()
+        stderr = StringIO()
+
+        with redirect_stderr(stderr), self.assertRaises(SystemExit) as raised:
+            parser.parse_args(["inspect-replay"])
+
+        self.assertEqual(raised.exception.code, 2)
+        self.assertIn("--config", stderr.getvalue())
+        self.assertIn("--fixture", stderr.getvalue())
+
     def test_inspect_requires_linode_token_from_environment(self) -> None:
         with TemporaryDirectory() as tmpdir:
             path = Path(tmpdir) / "backup-lab.toml"
@@ -220,6 +231,65 @@ class CliTests(unittest.TestCase):
         self.assertNotIn("112233", manifest_json)
         self.assertNotIn("token-value", stderr.getvalue())
         self.assertNotIn("pre-upgrade", stderr.getvalue())
+
+    def test_inspect_replay_outputs_fixture_manifest_without_credentials_or_provider_reads(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / "backup-lab.toml"
+            write_config(config_path)
+            fixture_path = Path(tmpdir) / "backups.json"
+            fixture_path.write_text(
+                json.dumps(
+                    [
+                        {
+                            "backup_id": "SANITIZED_BACKUP_ID",
+                            "backup_label": "SANITIZED_SNAPSHOT_LABEL",
+                            "backup_status": "successful",
+                            "backup_kind": "snapshot",
+                            "snapshot_state": "current",
+                            "provider_type": "snapshot",
+                            "available": True,
+                            "created_at": "SANITIZED_PROVIDER_TIMESTAMP",
+                            "finished_at": "SANITIZED_PROVIDER_TIMESTAMP",
+                            "updated_at": "SANITIZED_PROVIDER_TIMESTAMP",
+                            "config_count": 1,
+                            "disk_count": 1,
+                        }
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            stdout = StringIO()
+            stderr = StringIO()
+
+            exit_code = main(
+                ["inspect-replay", "--config", str(config_path), "--fixture", str(fixture_path)],
+                stdout=stdout,
+                stderr=stderr,
+                environ={},
+            )
+
+        manifest_json = stdout.getvalue()
+        manifest = json.loads(manifest_json)
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(stderr.getvalue(), "")
+        self.assertEqual(manifest["action"], "inspect-replay")
+        self.assertIs(manifest["dry_run"], True)
+        self.assertEqual(manifest["command"]["token_source"], "not_required")
+        self.assertEqual(manifest["command"]["provider_calls"], {"occurred": False, "items": []})
+        self.assertEqual(manifest["provider_read"]["status"], "not_performed")
+        self.assertEqual(manifest["fixture_replay"]["source"], "sanitized_fixture")
+        self.assertIs(manifest["fixture_replay"]["live_provider_state_read"], False)
+        self.assertEqual(manifest["review"]["provider_calls"]["total"], 0)
+        self.assertEqual(manifest["review"]["state_visibility"]["provider_backup_state"], "fixture_replay")
+        self.assertEqual(manifest["state_assessment"]["source"], "sanitized_fixture_replay")
+        self.assertIs(manifest["state_assessment"]["provider_read_performed"], False)
+        self.assertEqual(manifest["review"]["retry_recovery"]["provider_state_classification"], "refresh_before_retry")
+        self.assertEqual(manifest["safety"]["credentials"], "not_required")
+        self.assertIs(manifest["safety"]["linode_token_required"], False)
+        self.assertEqual(manifest["safety"]["provider_reads"], "not_performed")
+        self.assertIs(manifest["safety"]["fixture_replay_only"], True)
+        self.assertNotIn("SANITIZED_BACKUP_ID", manifest_json)
+        self.assertNotIn("SANITIZED_PROVIDER_TIMESTAMP", manifest_json)
 
 
 if __name__ == "__main__":
