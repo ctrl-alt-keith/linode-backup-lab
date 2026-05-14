@@ -11,44 +11,73 @@ safety guarantees.
 The project starts intentionally small. Feature work should stay scoped,
 safety-oriented, dry-run-first, and validated through `make check`.
 
-## Install From Checkout
+## Installation
 
-For local development, install the checkout in editable mode:
+Requires Python 3.10 or newer.
+
+Install from a repository checkout for local development:
 
 ```sh
+git clone https://github.com/ctrl-alt-keith/linode-backup-lab.git
+cd linode-backup-lab
 python -m pip install -e .
-```
-
-That installs the `linode-backup-lab` console script:
-
-```sh
 linode-backup-lab --help
 linode-backup-lab --version
-linode-backup-lab plan --config path/to/backup-lab.toml
-LINODE_TOKEN=... linode-backup-lab inspect --config path/to/backup-lab.toml
-linode-backup-lab inspect-replay --config path/to/backup-lab.toml --fixture tests/fixtures/sanitized/inspect-provider-backups.normalized.json
 ```
 
-The module entry point remains supported:
-
-```sh
-python -m linode_backup_lab plan --config path/to/backup-lab.toml
-LINODE_TOKEN=... python -m linode_backup_lab inspect --config path/to/backup-lab.toml
-python -m linode_backup_lab inspect-replay --config path/to/backup-lab.toml --fixture tests/fixtures/sanitized/inspect-provider-backups.normalized.json
-```
-
-From a local checkout, `pipx` can also install the command into an isolated
-environment:
+`pipx` can install the command into an isolated environment from the checkout:
 
 ```sh
 pipx install .
 linode-backup-lab --help
+linode-backup-lab --version
 ```
 
-This repository is installable from a checkout and can be smoke-checked from
+Install directly from the GitHub repository URL:
+
+```sh
+pipx install "git+https://github.com/ctrl-alt-keith/linode-backup-lab.git"
+linode-backup-lab --help
+```
+
+Install the released `v0.1.0` tag explicitly:
+
+```sh
+pipx install "git+https://github.com/ctrl-alt-keith/linode-backup-lab.git@v0.1.0"
+linode-backup-lab --version
+```
+
+Replace `v0.1.0` with a later released tag when one exists. To refresh the same
+GitHub install, or to rebuild it with the original install options:
+
+```sh
+pipx reinstall linode-backup-lab
+```
+
+To move to a specific GitHub ref or tag, force-install that ref:
+
+```sh
+pipx install --force "git+https://github.com/ctrl-alt-keith/linode-backup-lab.git@v0.1.0"
+```
+
+Uninstall the command with:
+
+```sh
+pipx uninstall linode-backup-lab
+```
+
+The module entry point remains supported from an installed environment:
+
+```sh
+python -m linode_backup_lab --help
+python -m linode_backup_lab --version
+```
+
+This repository is installable from a checkout, from GitHub refs, and from
 built wheel and source distribution artifacts. Release-prep details live in
 [`docs/releasing.md`](docs/releasing.md). It does not include PyPI publishing,
-GitHub release creation, tag publishing, or provider-live release checks.
+automated GitHub release creation, automated tag publishing, provider-live
+release checks, restore execution, or snapshot execution.
 
 ## Dry-Run Plan
 
