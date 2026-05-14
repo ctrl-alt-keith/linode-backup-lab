@@ -1,0 +1,30 @@
+[
+  {
+    "backup_id": "SANITIZED_BACKUP_ID_AUTOMATIC",
+    "backup_label": null,
+    "backup_status": "successful",
+    "backup_kind": "automatic",
+    "snapshot_state": null,
+    "provider_type": "auto",
+    "available": true,
+    "created_at": "SANITIZED_PROVIDER_TIMESTAMP",
+    "finished_at": "SANITIZED_PROVIDER_TIMESTAMP",
+    "updated_at": "SANITIZED_PROVIDER_TIMESTAMP",
+    "config_count": 1,
+    "disk_count": 1
+  },
+  {
+    "backup_id": "SANITIZED_BACKUP_ID_SNAPSHOT",
+    "backup_label": "SANITIZED_SNAPSHOT_LABEL",
+    "backup_status": "successful",
+    "backup_kind": "snapshot",
+    "snapshot_state": "current",
+    "provider_type": "snapshot",
+    "available": true,
+    "created_at": "SANITIZED_PROVIDER_TIMESTAMP",
+    "finished_at": "SANITIZED_PROVIDER_TIMESTAMP",
+    "updated_at": "SANITIZED_PROVIDER_TIMESTAMP",
+    "config_count": 1,
+    "disk_count": 1
+  }
+]
