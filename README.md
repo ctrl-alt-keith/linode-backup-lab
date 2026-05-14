@@ -125,6 +125,8 @@ restore-path boundary.
 - Dry-run planning and inspection come before any provider mutation.
 - Live mutations require explicit future command support and explicit operator
   opt-in.
+- CI, Dependabot, branch-protection intent, and required status check names are
+  documented in [`docs/governance-ci.md`](docs/governance-ci.md).
 - Future live snapshot execution boundary notes are documented in
   [`docs/snapshot-execution-boundary.md`](docs/snapshot-execution-boundary.md).
 - Public output should avoid tokens, authorization headers, raw provider
