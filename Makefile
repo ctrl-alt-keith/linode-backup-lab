@@ -1,4 +1,5 @@
 PYTHON ?= python
+BUILD_PYTHON ?=
 RELEASE_VERSION = $(patsubst v%,%,$(VERSION))
 RELEASE_SMOKE_DIR ?= .release-smoke
 DIST_DIR = $(RELEASE_SMOKE_DIR)/dist
@@ -58,23 +59,55 @@ release-prep: ## Run advisory local release-prep checks for VERSION.
 	@$(MAKE) --no-print-directory check
 	@$(MAKE) --no-print-directory package-smoke
 
-package-build: ## Build wheel and sdist into repo-local release smoke output.
-	rm -rf "$(RELEASE_SMOKE_DIR)"
-	$(PYTHON) -m venv "$(BUILD_VENV)"
-	"$(BUILD_VENV)/bin/python" -m pip install --upgrade pip build
-	"$(BUILD_VENV)/bin/python" -m build --outdir "$(DIST_DIR)"
+package-build: ## Build wheel and sdist, preferring an available build frontend.
+	rm -rf "$(DIST_DIR)" "$(WHEEL_VENV)" "$(SDIST_VENV)" "$(PIPX_HOME_DIR)" "$(PIPX_BIN_DIR)" build
+	@set -e; \
+	if [ -n "$(BUILD_PYTHON)" ]; then \
+		build_python="$(BUILD_PYTHON)"; \
+		echo "Using BUILD_PYTHON=$$build_python; package-build will not bootstrap the build frontend."; \
+	elif $(PYTHON) -m build --version >/dev/null 2>&1; then \
+		build_python="$(PYTHON)"; \
+		echo "Using existing build frontend from $(PYTHON); package-build will not bootstrap the build frontend."; \
+	elif [ -x "$(BUILD_VENV)/bin/python" ] && "$(BUILD_VENV)/bin/python" -m build --version >/dev/null 2>&1; then \
+		build_python="$(BUILD_VENV)/bin/python"; \
+		echo "Using existing repo-local build venv at $(BUILD_VENV); package-build will not reinstall the build frontend."; \
+	else \
+		echo "No build frontend found for $(PYTHON). Bootstrapping $(BUILD_VENV)."; \
+		echo "This fallback may require package-index access to install build and setuptools."; \
+		rm -rf "$(BUILD_VENV)"; \
+		$(PYTHON) -m venv "$(BUILD_VENV)"; \
+		"$(BUILD_VENV)/bin/python" -m pip install "build>=1.0" "setuptools>=77"; \
+		build_python="$(BUILD_VENV)/bin/python"; \
+	fi; \
+	"$$build_python" -m build --version >/dev/null || { \
+		echo "Error: $$build_python must support 'python -m build'." >&2; \
+		exit 1; \
+	}; \
+	if "$$build_python" -c 'import setuptools, sys; parts = tuple(int(part) for part in setuptools.__version__.split(".")[:2]); sys.exit(0 if parts >= (77,) else 1)' >/dev/null 2>&1; then \
+		echo "Building with --no-isolation using the selected build environment."; \
+		"$$build_python" -m build --no-isolation --outdir "$(DIST_DIR)"; \
+	else \
+		echo "Selected build environment lacks setuptools>=77; using build isolation."; \
+		echo "This may require package-index access for build backend dependencies."; \
+		"$$build_python" -m build --outdir "$(DIST_DIR)"; \
+	fi
 
 package-smoke: package-build ## Install built artifacts in isolated venvs and run help checks.
 	$(PYTHON) -m venv "$(WHEEL_VENV)"
-	"$(WHEEL_VENV)/bin/python" -m pip install --upgrade pip
 	"$(WHEEL_VENV)/bin/python" -m pip install "$(DIST_DIR)"/*.whl
 	"$(WHEEL_VENV)/bin/linode-backup-lab" --help >/dev/null
 	"$(WHEEL_VENV)/bin/linode-backup-lab" --version >/dev/null
 	"$(WHEEL_VENV)/bin/python" -m linode_backup_lab --help >/dev/null
 	"$(WHEEL_VENV)/bin/python" -m linode_backup_lab --version >/dev/null
 	$(PYTHON) -m venv "$(SDIST_VENV)"
-	"$(SDIST_VENV)/bin/python" -m pip install --upgrade pip
-	"$(SDIST_VENV)/bin/python" -m pip install "$(DIST_DIR)"/*.tar.gz
+	@if "$(SDIST_VENV)/bin/python" -c 'import setuptools, sys; parts = tuple(int(part) for part in setuptools.__version__.split(".")[:2]); sys.exit(0 if parts >= (77,) else 1)' >/dev/null 2>&1; then \
+		echo "Installing sdist with --no-build-isolation; sdist smoke will not bootstrap build backend dependencies."; \
+		"$(SDIST_VENV)/bin/python" -m pip install --no-build-isolation "$(DIST_DIR)"/*.tar.gz; \
+	else \
+		echo "Sdist smoke environment lacks setuptools>=77; using pip build isolation."; \
+		echo "This fallback may require package-index access for build backend dependencies."; \
+		"$(SDIST_VENV)/bin/python" -m pip install "$(DIST_DIR)"/*.tar.gz; \
+	fi
 	"$(SDIST_VENV)/bin/linode-backup-lab" --help >/dev/null
 	"$(SDIST_VENV)/bin/linode-backup-lab" --version >/dev/null
 	"$(SDIST_VENV)/bin/python" -m linode_backup_lab --help >/dev/null

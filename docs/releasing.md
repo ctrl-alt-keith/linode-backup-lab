@@ -50,6 +50,28 @@ python -m linode_backup_lab --version
 The target creates only repo-local generated state under `.release-smoke/`.
 Generated release-prep output is intentionally ignored by git.
 
+`package-build` prefers a build frontend that is already available before it
+bootstraps anything:
+
+- Set `BUILD_PYTHON=/path/to/python` to use a prepared environment explicitly.
+- Otherwise, `package-build` uses `$(PYTHON) -m build` when it is already
+  available.
+- If `.release-smoke/build-venv` already exists and can run `python -m build`,
+  the target reuses it.
+- Only when none of those paths can run `python -m build` does the target create
+  `.release-smoke/build-venv` and install `build` plus `setuptools`.
+
+When the selected build environment already has `setuptools>=77`,
+`package-build` uses `python -m build --no-isolation` so the build itself does
+not bootstrap backend dependencies. If backend dependencies are missing, it
+falls back to build isolation and prints that package-index access may be
+required.
+
+The wheel install smoke does not bootstrap packaging tools. The sdist install
+smoke also uses `--no-build-isolation` when the fresh smoke environment already
+has `setuptools>=77`; otherwise it prints that pip build isolation may require
+package-index access for backend dependencies.
+
 ## Pipx Smoke
 
 When `pipx` is available, run the advisory pipx smoke target:
