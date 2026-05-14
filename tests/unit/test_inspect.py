@@ -70,6 +70,42 @@ class CurrentSnapshotClient:
         ]
 
 
+class AmbiguousSnapshotClient:
+    provider_api_version = "v4"
+
+    def list_backups(self, linode_id: int) -> list[dict[str, object]]:
+        return [
+            {
+                "backup_id": 222222,
+                "backup_label": "private-target-label",
+                "backup_status": "successful",
+                "backup_kind": "snapshot",
+                "snapshot_state": "current",
+                "provider_type": "provider-added-snapshot-kind",
+                "available": True,
+                "created_at": "2026-05-06T13:00:00",
+                "finished_at": "2026-05-06T13:05:00",
+                "updated_at": "2026-05-06T13:06:00",
+                "config_count": None,
+                "disk_count": 1,
+            },
+            {
+                "backup_id": 333333,
+                "backup_label": "private-next-label",
+                "backup_status": "provider-added-progress-state",
+                "backup_kind": "snapshot",
+                "snapshot_state": "in_progress",
+                "provider_type": "provider-added-snapshot-kind",
+                "available": None,
+                "created_at": "2026-05-06T14:00:00",
+                "finished_at": None,
+                "updated_at": "2026-05-06T14:01:00",
+                "config_count": 1,
+                "disk_count": None,
+            },
+        ]
+
+
 class InspectTests(unittest.TestCase):
     def test_inspect_manifest_reads_provider_and_redacts_public_output(self) -> None:
         config = BackupLabConfig(
@@ -280,6 +316,44 @@ class InspectTests(unittest.TestCase):
         )
         self.assertNotIn("private-target-label", manifest_json)
         self.assertNotIn("different-provider-label", manifest_json)
+
+    def test_inspect_treats_current_snapshot_match_with_in_progress_as_uncertain(self) -> None:
+        config = BackupLabConfig(
+            schema_version="1",
+            target=TargetConfig(linode_id=123, snapshot_label="private-target-label"),
+        )
+
+        manifest = create_inspect_manifest(config, client=AmbiguousSnapshotClient())
+        manifest_json = json.dumps(manifest, sort_keys=True)
+
+        self.assertEqual(manifest["validation"]["status"], "passed_with_uncertain_provider_state")
+        self.assertEqual(manifest["state_assessment"]["status"], "uncertain_provider_state")
+        self.assertEqual(manifest["state_assessment"]["provider_local_match"], "unknown")
+        self.assertIs(manifest["state_assessment"]["configured_snapshot_label_matches_current"], None)
+        self.assertEqual(manifest["state_assessment"]["stale_metadata"]["reason"], "snapshot_in_progress_present")
+        self.assertIs(manifest["inspection_summary"]["snapshot_current_present"], True)
+        self.assertIs(manifest["inspection_summary"]["snapshot_in_progress_present"], True)
+        self.assertEqual(
+            manifest["inspection_summary"]["status_counts"],
+            {"provider-added-progress-state": 1, "successful": 1},
+        )
+        self.assertEqual(
+            manifest["review"]["state_visibility"]["unknown_fields"],
+            {
+                "available": 1,
+                "backup_kind": 0,
+                "backup_status": 0,
+                "config_count": 1,
+                "disk_count": 1,
+                "provider_type": 0,
+                "snapshot_state_for_snapshot": 0,
+            },
+        )
+        self.assertNotIn("222222", manifest_json)
+        self.assertNotIn("333333", manifest_json)
+        self.assertNotIn("private-target-label", manifest_json)
+        self.assertNotIn("private-next-label", manifest_json)
+        self.assertNotIn("2026-05-06T14:00:00", manifest_json)
 
 
 if __name__ == "__main__":
