@@ -35,9 +35,9 @@ contract.
 - `state_assessment` records advisory local-vs-provider state visibility. Plan
   and snapshot dry-runs report `unverified_provider_state` because they do not
   perform provider reads. Inspect reports a fresh provider read and compares the
-  configured snapshot label to the current provider snapshot label without
+  configured snapshot label to the current manual snapshot slot label without
   emitting either raw label. Inspect replay reports fixture-derived visibility
-  separately and does not claim that the fixture is current provider state.
+  separately and does not claim that the fixture is live provider state.
 - `outcome` records runtime completion reporting separately from validation.
   Current dry-run plans report `not_executed`. `inspect` reports
   `provider_read_completed` only after the read-only provider request returns,
@@ -125,12 +125,13 @@ provider mutation.
 `inspect` is the only current command that refreshes provider backup state. Its
 `state_assessment` reports whether a current provider snapshot is present,
 whether a snapshot is in progress, whether the configured snapshot label matches
-the current provider snapshot label, and whether local metadata appears stale.
+the current manual snapshot slot label, and whether local metadata appears
+stale.
 Raw labels remain redacted from the emitted report.
 
 Possible inspect states are:
 
-- `provider_local_match`: the current provider snapshot label matches the
+- `provider_local_match`: the current manual snapshot slot label matches the
   configured snapshot label.
 - `provider_local_mismatch`: the fresh provider read shows no matching current
   snapshot, which means local config and provider state diverge or local
@@ -142,6 +143,40 @@ Possible inspect states are:
 All current drift states are advisory-first. They improve review visibility and
 refresh guidance without adding synchronization, automatic remediation, or
 mutation behavior.
+
+## Backup-Service And Snapshot-Slot Vocabulary
+
+Current manifests use stable field names such as `provider_read`,
+`normalized_backup_state`, `state_assessment.provider_local_match`, and
+`configured_snapshot_label_matches_current`. Those fields describe two related
+but separate review surfaces:
+
+- Backup-service visibility: whether the command read the Linode backups
+  collection, failed before usable backup-service state was available, skipped
+  the provider entirely, or replayed a local fixture.
+- Manual snapshot-slot comparison: whether the visible current manual snapshot
+  slot can be compared with the configured `target.snapshot_label`.
+
+`provider_local_match` is therefore not a general provider-health verdict. In a
+successful live `inspect`, it only summarizes the configured label comparison
+against the current manual snapshot slot visible in the backup-service read.
+It does not compare automatic backups, restore readiness, source/target Linode
+identity, region, storage, overwrite intent, disk UUIDs, or future mutation
+permission.
+
+`provider_local_mismatch` means the fresh live read did not show a current
+manual snapshot slot matching the configured label. The manifest does not decide
+whether local config, provider state, or operator intent should win.
+`uncertain_provider_state` means the read cannot support a stable snapshot-slot
+comparison, such as when a snapshot is in progress or the current slot label is
+not available. `unverified_provider_state`, `provider_read_failed`, and
+`fixture_replayed` likewise do not provide live snapshot-slot proof.
+
+Failure reports and replay reports keep the same boundary explicit. A provider
+failure report can say whether a read request was sent, but it does not contain
+usable backup-service state. An `inspect-replay` report can demonstrate how
+fixture values flow through inspect-style output, but it remains
+`sanitized_fixture_replay` evidence rather than live backup-service evidence.
 
 ## Inspect Provider Failure Reports
 
@@ -190,10 +225,11 @@ does not validate live provider semantics.
 
 Replay may compare the configured snapshot label to labels present in the
 fixture for local demonstration, but `state_assessment.source` is
-`sanitized_fixture_replay` and `provider_local_match` is
-`not_evaluated_live`. A replay report is never evidence of current provider
-state. Before any future mutation path, operators must run live read-only
-`inspect` with an environment-provided `LINODE_TOKEN`.
+`sanitized_fixture_replay`, `fixture_local_match` is fixture-only, and
+`provider_local_match` is `not_evaluated_live`. A replay report is never
+evidence of current provider backup-service state or current manual
+snapshot-slot state. Before any future mutation path, operators must run live
+read-only `inspect` with an environment-provided `LINODE_TOKEN`.
 
 ## Outcome State And Retry Vocabulary
 
@@ -220,16 +256,16 @@ into two intentionally separate classifications:
 
 Provider-state classifications are:
 
-- `safe_to_retry`: a fresh read shows the current provider snapshot label
+- `safe_to_retry`: a fresh read shows the current manual snapshot slot label
   matches the configured snapshot label. This removes the current
-  label-drift advisory from a future retry decision, but it is not restore
-  authorization or mutation approval.
+  snapshot-slot label-drift advisory from a future retry decision, but it is
+  not restore authorization or mutation approval.
 - `refresh_before_retry`: provider state was not read by this command, so a
   fresh `inspect` should happen before any future recovery-style retry or
   mutation attempt.
-- `operator_review_required`: a fresh read shows local config and provider
-  state diverge. The manifest does not choose whether local config, provider
-  state, or operator intent should win.
+- `operator_review_required`: a fresh read shows the configured snapshot label
+  and current manual snapshot slot diverge. The manifest does not choose
+  whether local config, provider state, or operator intent should win.
 - `state_uncertain`: the provider read cannot support a stable comparison, such
   as when a snapshot is in progress or the current snapshot label is not
   available.

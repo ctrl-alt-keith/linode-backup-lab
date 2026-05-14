@@ -116,6 +116,26 @@ provider-documented side effect
 must surface that side effect before allowing execution. This repository should
 not describe manual snapshots as append-only history.
 
+## Backup-Service Versus Snapshot-Slot State
+
+The List backups response gives this project backup-service visibility: a
+collection of automatic backups and the manual snapshot entries the provider
+reports for the configured Linode. The project normalizes that response before
+command helpers reason about it.
+
+The current `state_assessment.provider_local_match` field is narrower than the
+backup-service read as a whole. It compares the configured
+`target.snapshot_label` only to the current manual snapshot slot when a live
+inspect read exposes enough normalized data for that comparison. It does not
+assess automatic-backup health, restore eligibility, provider account health,
+or future mutation authorization.
+
+Dry-run plans have no backup-service visibility. Provider failure reports have
+no usable backup-service state even when they can report that a request was
+sent. Fixture replay reports use sanitized local input and therefore provide
+fixture evidence only, not live backup-service or current snapshot-slot
+evidence.
+
 ## Official References
 
 - Linode API reference, List backups:
