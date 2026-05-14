@@ -46,8 +46,8 @@ class ProviderError(RuntimeError):
         *,
         public_message: str = "Linode provider read failed",
         category: str = "provider_error",
-        request_sent: bool = True,
-        response_received: bool | None = None,
+        request_sent: bool = False,
+        response_received: bool = False,
         status_code: int | None = None,
     ) -> None:
         super().__init__(public_message)

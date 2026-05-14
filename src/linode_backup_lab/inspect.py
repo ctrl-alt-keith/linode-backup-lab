@@ -171,16 +171,16 @@ def create_inspect_failure_manifest(
         "method": "GET",
         "operation": "list_backups",
     }
+    failure = public_safe_provider_failure(provider_error)
     provider_calls = {
-        "occurred": True,
-        "items": [provider_call],
+        "occurred": failure["request_sent"],
+        "items": [provider_call] if failure["request_sent"] else [],
     }
     intent = mutation_intent(
         planned_operation=None,
         reason="read-only inspection only",
     )
-    failure = public_safe_provider_failure(provider_error)
-    state_assessment = failed_provider_state_assessment()
+    state_assessment = failed_provider_state_assessment(provider_read_attempted=failure["request_sent"])
     outcome = {
         "status": "provider_read_failed",
         "execution_state": "failed",
@@ -307,12 +307,12 @@ def public_safe_provider_failure(provider_error: ProviderError) -> JsonMap:
     return failure
 
 
-def failed_provider_state_assessment() -> JsonMap:
+def failed_provider_state_assessment(*, provider_read_attempted: bool = False) -> JsonMap:
     return {
         "status": "provider_read_failed",
         "source": "provider_failure_report",
         "provider_read_performed": False,
-        "provider_read_attempted": True,
+        "provider_read_attempted": provider_read_attempted,
         "provider_local_match": "not_checked",
         "snapshot_current_present": None,
         "snapshot_in_progress_present": None,

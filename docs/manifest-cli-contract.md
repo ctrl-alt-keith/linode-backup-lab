@@ -147,6 +147,10 @@ provider read failed, whether a request was sent, whether a response was
 received when known, and a coarse failure category such as `http_error`,
 `network_error`, `invalid_json`, or `unexpected_json_shape`.
 
+Failure metadata is conservative: generic or internal provider-boundary errors
+do not claim a provider request was sent or a response was received unless the
+provider client explicitly reports that evidence.
+
 Failure reports do not include token values, target values, raw provider
 payloads, provider URLs, authorization headers, backup identifiers, labels, or
 provider timestamps. They also do not perform retry, recovery, cleanup, restore,

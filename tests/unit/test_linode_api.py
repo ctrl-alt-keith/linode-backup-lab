@@ -129,6 +129,16 @@ class LinodeApiTests(unittest.TestCase):
 
         self.assertEqual(seen, [])
 
+    def test_provider_error_defaults_do_not_claim_request_attempt(self) -> None:
+        error = ProviderError("private setup detail")
+
+        self.assertEqual(str(error), "Linode provider read failed")
+        self.assertEqual(error.category, "provider_error")
+        self.assertIs(error.request_sent, False)
+        self.assertIs(error.response_received, False)
+        self.assertIs(error.status_code, None)
+        self.assertNotIn("private setup detail", str(error))
+
     def test_http_transport_reports_http_failure_without_raw_url_or_payload(self) -> None:
         def failing_urlopen(request: object, timeout: float) -> object:
             raise HTTPError(

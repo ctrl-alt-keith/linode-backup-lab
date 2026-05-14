@@ -416,6 +416,42 @@ class InspectTests(unittest.TestCase):
         self.assertNotIn("token-value", manifest_json)
         self.assertNotIn("provider.example", manifest_json)
 
+    def test_generic_inspect_failure_manifest_does_not_claim_provider_request(self) -> None:
+        config = BackupLabConfig(
+            schema_version="1",
+            target=TargetConfig(linode_id=112233, snapshot_label="private-target-label"),
+        )
+        error = ProviderError("private setup detail with token-value")
+
+        manifest = create_inspect_failure_manifest(
+            config,
+            provider_error=error,
+            run_id="inspect-generic-failure-test",
+            created_at="2026-05-06T00:00:00+00:00",
+        )
+        manifest_json = json.dumps(manifest, sort_keys=True)
+
+        self.assertEqual(manifest["command"]["provider_calls"], {"occurred": False, "items": []})
+        self.assertEqual(
+            manifest["provider_read"]["failure"],
+            {
+                "category": "provider_error",
+                "message": "Linode provider read failed",
+                "request_sent": False,
+                "response_received": False,
+                "raw_response_recorded": False,
+                "raw_payload_recorded": False,
+                "url_recorded": False,
+                "authorization_header_recorded": False,
+            },
+        )
+        self.assertIs(manifest["outcome"]["provider_reads"][0]["request_sent"], False)
+        self.assertIs(manifest["outcome"]["provider_reads"][0]["response_received"], False)
+        self.assertIs(manifest["state_assessment"]["provider_read_attempted"], False)
+        self.assertNotIn("112233", manifest_json)
+        self.assertNotIn("private-target-label", manifest_json)
+        self.assertNotIn("token-value", manifest_json)
+
 
 if __name__ == "__main__":
     unittest.main()
