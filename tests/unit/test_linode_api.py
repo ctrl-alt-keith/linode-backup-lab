@@ -1,15 +1,33 @@
 from pathlib import Path
 import unittest
+from unittest.mock import patch
+from urllib.error import HTTPError, URLError
 
 from linode_backup_lab.linode_api import (
     DEFAULT_PROVIDER_API_VERSION,
     LinodeApiClient,
+    ProviderError,
     ProviderConfig,
     ProviderReadOnlyViolation,
+    ReadOnlyHttpTransport,
     api_path,
     normalize_backup,
     normalize_backup_collection,
 )
+
+
+class FakeResponse:
+    def __init__(self, payload: bytes) -> None:
+        self.payload = payload
+
+    def __enter__(self) -> "FakeResponse":
+        return self
+
+    def __exit__(self, exc_type: object, exc: object, traceback: object) -> None:
+        return None
+
+    def read(self) -> bytes:
+        return self.payload
 
 
 class LinodeApiTests(unittest.TestCase):
@@ -110,6 +128,93 @@ class LinodeApiTests(unittest.TestCase):
             client.request("GET", client.path("linode", "instances", 123, "backups"), {"unexpected": True})
 
         self.assertEqual(seen, [])
+
+    def test_http_transport_reports_http_failure_without_raw_url_or_payload(self) -> None:
+        def failing_urlopen(request: object, timeout: float) -> object:
+            raise HTTPError(
+                url="https://api.linode.com/v4/linode/instances/112233/backups?token=secret",
+                code=503,
+                msg="provider failure with private detail",
+                hdrs=None,
+                fp=None,
+            )
+
+        with patch("linode_backup_lab.linode_api.urlopen", failing_urlopen):
+            with self.assertRaises(ProviderError) as raised:
+                ReadOnlyHttpTransport()(
+                    "GET",
+                    "https://api.linode.com/v4/linode/instances/112233/backups",
+                    {"Authorization": "Bearer token-value"},
+                    None,
+                )
+
+        error = raised.exception
+        self.assertEqual(str(error), "Linode API read failed with HTTP 503")
+        self.assertEqual(error.category, "http_error")
+        self.assertIs(error.request_sent, True)
+        self.assertIs(error.response_received, True)
+        self.assertEqual(error.status_code, 503)
+        self.assertNotIn("112233", str(error))
+        self.assertNotIn("token-value", str(error))
+        self.assertNotIn("secret", str(error))
+
+    def test_http_transport_reports_network_failure_without_raw_reason(self) -> None:
+        def failing_urlopen(request: object, timeout: float) -> object:
+            raise URLError("private-network-detail token-value")
+
+        with patch("linode_backup_lab.linode_api.urlopen", failing_urlopen):
+            with self.assertRaises(ProviderError) as raised:
+                ReadOnlyHttpTransport()(
+                    "GET",
+                    "https://api.linode.com/v4/linode/instances/112233/backups",
+                    {"Authorization": "Bearer token-value"},
+                    None,
+                )
+
+        error = raised.exception
+        self.assertEqual(str(error), "Linode API read failed before receiving a response")
+        self.assertEqual(error.category, "network_error")
+        self.assertIs(error.request_sent, True)
+        self.assertIs(error.response_received, False)
+        self.assertIs(error.status_code, None)
+        self.assertNotIn("private-network-detail", str(error))
+        self.assertNotIn("token-value", str(error))
+
+    def test_http_transport_reports_invalid_json_without_raw_payload(self) -> None:
+        with patch("linode_backup_lab.linode_api.urlopen", return_value=FakeResponse(b'{"token": "secret"')):
+            with self.assertRaises(ProviderError) as raised:
+                ReadOnlyHttpTransport()(
+                    "GET",
+                    "https://api.linode.com/v4/linode/instances/112233/backups",
+                    {"Authorization": "Bearer token-value"},
+                    None,
+                )
+
+        error = raised.exception
+        self.assertEqual(str(error), "Linode API returned invalid JSON")
+        self.assertEqual(error.category, "invalid_json")
+        self.assertIs(error.request_sent, True)
+        self.assertIs(error.response_received, True)
+        self.assertNotIn("secret", str(error))
+        self.assertNotIn("token-value", str(error))
+
+    def test_http_transport_reports_unexpected_json_shape_without_raw_payload(self) -> None:
+        with patch("linode_backup_lab.linode_api.urlopen", return_value=FakeResponse(b'["private-target"]')):
+            with self.assertRaises(ProviderError) as raised:
+                ReadOnlyHttpTransport()(
+                    "GET",
+                    "https://api.linode.com/v4/linode/instances/112233/backups",
+                    {"Authorization": "Bearer token-value"},
+                    None,
+                )
+
+        error = raised.exception
+        self.assertEqual(str(error), "Linode API returned an unexpected JSON shape")
+        self.assertEqual(error.category, "unexpected_json_shape")
+        self.assertIs(error.request_sent, True)
+        self.assertIs(error.response_received, True)
+        self.assertNotIn("private-target", str(error))
+        self.assertNotIn("token-value", str(error))
 
     def test_raw_provider_version_paths_stay_in_api_boundary(self) -> None:
         src_root = Path(__file__).resolve().parents[2] / "src" / "linode_backup_lab"

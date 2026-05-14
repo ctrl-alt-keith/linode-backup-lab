@@ -6,6 +6,7 @@ from tempfile import TemporaryDirectory
 import unittest
 
 from linode_backup_lab.cli import build_parser, main
+from linode_backup_lab.linode_api import ProviderError
 
 
 def write_config(path: Path) -> None:
@@ -46,6 +47,22 @@ class FakeInspectClient:
                 "disk_count": 2,
             }
         ]
+
+
+class FailingInspectClient:
+    provider_api_version = "v4beta"
+
+    def __init__(self, token: str) -> None:
+        self.token = token
+
+    def list_backups(self, linode_id: int) -> list[dict[str, object]]:
+        raise ProviderError(
+            f"raw provider detail token={self.token} linode={linode_id} label=pre-upgrade",
+            public_message="Linode API returned invalid JSON",
+            category="invalid_json",
+            request_sent=True,
+            response_received=True,
+        )
 
 
 class CliTests(unittest.TestCase):
@@ -158,6 +175,51 @@ class CliTests(unittest.TestCase):
         self.assertEqual(manifest["safety"]["provider_mutations"], "not_performed")
         self.assertNotIn("token-value", manifest_json)
         self.assertNotIn("private-label", manifest_json)
+
+    def test_inspect_provider_failure_preserves_exit_code_and_emits_safe_manifest(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "backup-lab.toml"
+            path.write_text(
+                '\n'.join(
+                    [
+                        'schema_version = "1"',
+                        "",
+                        "[target]",
+                        "linode_id = 112233",
+                        'snapshot_label = "pre-upgrade"',
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            stdout = StringIO()
+            stderr = StringIO()
+
+            exit_code = main(
+                ["inspect", "--config", str(path)],
+                stdout=stdout,
+                stderr=stderr,
+                environ={"LINODE_TOKEN": "token-value"},
+                inspect_client_factory=FailingInspectClient,
+            )
+
+        manifest_json = stdout.getvalue()
+        manifest = json.loads(manifest_json)
+        self.assertEqual(exit_code, 1)
+        self.assertIn("Linode API returned invalid JSON", stderr.getvalue())
+        self.assertEqual(manifest["status"], "provider_read_failed")
+        self.assertEqual(manifest["provider"], {"name": "linode", "api_version": "v4beta"})
+        self.assertEqual(manifest["provider_read"]["failure"]["category"], "invalid_json")
+        self.assertEqual(manifest["provider_read"]["failure"]["message"], "Linode API returned invalid JSON")
+        self.assertEqual(
+            manifest["outcome"]["retry_classification"],
+            "safe_to_rerun_read_only_after_provider_failure",
+        )
+        self.assertEqual(manifest["safety"]["provider_reads"], "failed")
+        self.assertNotIn("token-value", manifest_json)
+        self.assertNotIn("pre-upgrade", manifest_json)
+        self.assertNotIn("112233", manifest_json)
+        self.assertNotIn("token-value", stderr.getvalue())
+        self.assertNotIn("pre-upgrade", stderr.getvalue())
 
 
 if __name__ == "__main__":

@@ -37,7 +37,9 @@ contract.
   emitting either raw label.
 - `outcome` records runtime completion reporting separately from validation.
   Current dry-run plans report `not_executed`. `inspect` reports
-  `provider_read_completed` only after the read-only provider request returns.
+  `provider_read_completed` only after the read-only provider request returns,
+  or `provider_read_failed` when the provider read cannot return usable backup
+  state.
   Outcome objects also report `execution_state`, `partial_execution`,
   `state_uncertain`, `operator_review_required`, `retry_classification`,
   `idempotency_boundary`, and `retry_boundary` so operators do not have to infer
@@ -136,6 +138,22 @@ All current drift states are advisory-first. They improve review visibility and
 refresh guidance without adding synchronization, automatic remediation, or
 mutation behavior.
 
+## Inspect Provider Failure Reports
+
+If `inspect` passes local config and token preconditions but the read-only
+provider request fails, the CLI exits with code `1` and emits a public-safe JSON
+failure manifest instead of raw provider detail. The report records that the
+provider read failed, whether a request was sent, whether a response was
+received when known, and a coarse failure category such as `http_error`,
+`network_error`, `invalid_json`, or `unexpected_json_shape`.
+
+Failure reports do not include token values, target values, raw provider
+payloads, provider URLs, authorization headers, backup identifiers, labels, or
+provider timestamps. They also do not perform retry, recovery, cleanup, restore,
+or mutation behavior. The failed provider state remains uncertain and must be
+refreshed with a future successful `inspect` before any future mutation path is
+allowed.
+
 ## Outcome State And Retry Vocabulary
 
 Current commands expose only non-mutating retry classifications:
@@ -144,6 +162,9 @@ Current commands expose only non-mutating retry classifications:
   repeats local validation and manifest generation only.
 - `safe_to_rerun_read_only`: a read-only provider request completed. Re-running
   may observe newer provider state but does not mutate resources.
+- `safe_to_rerun_read_only_after_provider_failure`: a read-only provider
+  request failed. Re-running retries the read-only request and does not mutate
+  resources.
 
 `review.retry_recovery` translates runtime outcome and provider state visibility
 into two intentionally separate classifications:
@@ -248,7 +269,9 @@ restore execution, remediation, or cleanup.
 ## CLI Exit Codes
 
 - `0`: command succeeded and emitted a manifest.
-- `1`: live provider read failed before a manifest could be emitted.
+- `1`: live provider read failed after local inspect preconditions passed. For
+  `inspect`, the command emits a public-safe failure manifest on stdout and a
+  sanitized one-line error on stderr.
 - `2`: usage, config, value, or local precondition failure, including missing
   required options, invalid config, unsupported values, or a missing
   environment-only credential required by the command.

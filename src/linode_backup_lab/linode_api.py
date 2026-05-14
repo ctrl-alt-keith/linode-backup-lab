@@ -38,7 +38,27 @@ Transport = Callable[[str, str, JsonMap, JsonMap | None], JsonMap]
 
 
 class ProviderError(RuntimeError):
-    """Raised when a provider read fails before a public-safe report exists."""
+    """Raised when a provider read fails with public-safe reporting metadata."""
+
+    def __init__(
+        self,
+        detail: str | None = None,
+        *,
+        public_message: str = "Linode provider read failed",
+        category: str = "provider_error",
+        request_sent: bool = True,
+        response_received: bool | None = None,
+        status_code: int | None = None,
+    ) -> None:
+        super().__init__(public_message)
+        self.category = category
+        self.public_message = public_message
+        self.request_sent = request_sent
+        self.response_received = response_received
+        self.status_code = status_code
+        # `detail` is intentionally not stored or emitted; callers may pass
+        # raw exception detail without making it part of the public contract.
+        _ = detail
 
 
 class ProviderReadOnlyViolation(ProviderError):
@@ -129,16 +149,39 @@ class ReadOnlyHttpTransport:
             with urlopen(request, timeout=self.timeout_seconds) as response:
                 payload = response.read().decode("utf-8")
         except HTTPError as exc:
-            raise ProviderError(f"Linode API read failed with HTTP {exc.code}") from exc
+            raise ProviderError(
+                public_message=f"Linode API read failed with HTTP {exc.code}",
+                category="http_error",
+                request_sent=True,
+                response_received=True,
+                status_code=exc.code,
+            ) from exc
         except URLError as exc:
-            raise ProviderError("Linode API read failed before receiving a response") from exc
+            raise ProviderError(
+                detail=str(exc.reason),
+                public_message="Linode API read failed before receiving a response",
+                category="network_error",
+                request_sent=True,
+                response_received=False,
+            ) from exc
 
         try:
             decoded = json.loads(payload) if payload else {}
         except json.JSONDecodeError as exc:
-            raise ProviderError("Linode API returned invalid JSON") from exc
+            raise ProviderError(
+                detail=str(exc),
+                public_message="Linode API returned invalid JSON",
+                category="invalid_json",
+                request_sent=True,
+                response_received=True,
+            ) from exc
         if not isinstance(decoded, dict):
-            raise ProviderError("Linode API returned an unexpected JSON shape")
+            raise ProviderError(
+                public_message="Linode API returned an unexpected JSON shape",
+                category="unexpected_json_shape",
+                request_sent=True,
+                response_received=True,
+            )
         return decoded
 
 

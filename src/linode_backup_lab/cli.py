@@ -10,8 +10,8 @@ from pathlib import Path
 from typing import Callable, Mapping, Sequence, TextIO
 
 from .config import ConfigError, load_config
-from .inspect import InspectClient, create_inspect_manifest, require_linode_token
-from .linode_api import LinodeApiClient, ProviderError
+from .inspect import InspectClient, create_inspect_failure_manifest, create_inspect_manifest, require_linode_token
+from .linode_api import DEFAULT_PROVIDER_API_VERSION, LinodeApiClient, ProviderError
 from .plan import create_plan_manifest
 
 
@@ -49,7 +49,22 @@ def main(
         elif args.command == "inspect":
             token = require_linode_token(env)
             factory = inspect_client_factory or (lambda linode_token: LinodeApiClient(token=linode_token))
-            manifest = create_inspect_manifest(config, client=factory(token), command=args.command)
+            client: InspectClient | None = None
+            try:
+                client = factory(token)
+                manifest = create_inspect_manifest(config, client=client, command=args.command)
+            except ProviderError as exc:
+                provider_api_version = getattr(client, "provider_api_version", DEFAULT_PROVIDER_API_VERSION)
+                manifest = create_inspect_failure_manifest(
+                    config,
+                    provider_error=exc,
+                    provider_api_version=provider_api_version,
+                    command=args.command,
+                )
+                json.dump(manifest, output, indent=2, sort_keys=True)
+                output.write("\n")
+                print(f"error: {exc}", file=error_output)
+                return 1
         else:
             parser.error(f"unsupported command: {args.command}")
     except ConfigError as exc:
@@ -58,9 +73,6 @@ def main(
     except ValueError as exc:
         print(f"error: {exc}", file=error_output)
         return 2
-    except ProviderError as exc:
-        print(f"error: {exc}", file=error_output)
-        return 1
 
     json.dump(manifest, output, indent=2, sort_keys=True)
     output.write("\n")

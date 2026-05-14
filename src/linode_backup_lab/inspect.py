@@ -6,10 +6,16 @@ from collections import Counter
 from typing import Any, Mapping, Protocol
 
 from .config import BackupLabConfig
-from .linode_api import DOCUMENTED_BACKUP_FIELDS, JsonMap
+from .linode_api import DEFAULT_PROVIDER_API_VERSION, DOCUMENTED_BACKUP_FIELDS, JsonMap, ProviderError
 from .manifest import create_manifest
 from .plan import mutation_intent, redacted_target_metadata
-from .review import backup_state_visibility, mutation_review, provider_call_review, retry_recovery_review
+from .review import (
+    backup_state_visibility,
+    mutation_review,
+    not_read_state_visibility,
+    provider_call_review,
+    retry_recovery_review,
+)
 
 
 class InspectClient(Protocol):
@@ -147,6 +153,182 @@ def create_inspect_manifest(
         }
     )
     return manifest
+
+
+def create_inspect_failure_manifest(
+    config: BackupLabConfig,
+    *,
+    provider_error: ProviderError,
+    provider_api_version: str = DEFAULT_PROVIDER_API_VERSION,
+    command: str = "inspect",
+    run_id: str | None = None,
+    created_at: str | None = None,
+) -> JsonMap:
+    """Return a public-safe inspect report for failed provider reads."""
+
+    provider_call = {
+        "kind": "read",
+        "method": "GET",
+        "operation": "list_backups",
+    }
+    provider_calls = {
+        "occurred": True,
+        "items": [provider_call],
+    }
+    intent = mutation_intent(
+        planned_operation=None,
+        reason="read-only inspection only",
+    )
+    failure = public_safe_provider_failure(provider_error)
+    state_assessment = failed_provider_state_assessment()
+    outcome = {
+        "status": "provider_read_failed",
+        "execution_state": "failed",
+        "partial_execution": False,
+        "state_uncertain": True,
+        "operator_review_required": False,
+        "retry_classification": "safe_to_rerun_read_only_after_provider_failure",
+        "idempotency_boundary": "read_only_provider_request",
+        "retry_boundary": "re-running retries a read-only provider request and does not mutate resources",
+        "provider_reads": [
+            {
+                **provider_call,
+                "request_sent": failure["request_sent"],
+                "response_received": failure["response_received"],
+                "failure": failure,
+            }
+        ],
+        "provider_mutations": [],
+    }
+
+    manifest = create_manifest(
+        action=command,
+        provider_api_version=provider_api_version,
+        dry_run=False,
+        run_id=run_id,
+        created_at=created_at,
+    )
+    manifest.update(
+        {
+            "status": "provider_read_failed",
+            "command": {
+                "name": command,
+                "config_source": "explicit",
+                "config_path_recorded": False,
+                "token_source": "environment",
+                "provider_calls": provider_calls,
+            },
+            "config": {
+                "schema_version": config.schema_version,
+            },
+            "provider_read": {
+                "status": "failed",
+                "operation": "list_backups",
+                "method": "GET",
+                "target": "configured_linode_backups",
+                "raw_response_recorded": False,
+                "failure": failure,
+            },
+            "inspection_summary": {
+                "target": redacted_target_metadata(),
+                "backup_count": None,
+                "automatic_backup_count": None,
+                "snapshot_current_present": None,
+                "snapshot_in_progress_present": None,
+                "available_backup_count": None,
+                "status_counts": {},
+            },
+            "normalized_backup_state": [],
+            "review": {
+                "provider_calls": provider_call_review(provider_calls),
+                "mutations": mutation_review(
+                    intent,
+                    provider_mutations="not_performed",
+                    skipped_reason="read_only_inspection",
+                ),
+                "state_visibility": not_read_state_visibility(
+                    skipped_states=["provider_backup_state", "provider_mutation"],
+                ),
+                "retry_recovery": retry_recovery_review(outcome, state_assessment),
+            },
+            "mutation_intent": intent,
+            "state_assessment": state_assessment,
+            "outcome": outcome,
+            "validation": {
+                "status": "provider_read_failed",
+                "checks": [
+                    "explicit_config_path",
+                    "config_schema_version_supported",
+                    "target_linode_id_valid",
+                    "target_snapshot_label_valid",
+                    "linode_token_environment_present",
+                    "provider_state_refresh_failed",
+                ],
+            },
+            "safety": {
+                "credentials": "environment_only",
+                "linode_token_required": True,
+                "linode_token_recorded": False,
+                "provider_reads": "failed",
+                "provider_mutations": "not_performed",
+                "read_only_enforced": True,
+                "raw_provider_response_recorded": False,
+                "target_values": "redacted",
+                "backup_identifiers": "not_recorded",
+                "provider_url_recorded": False,
+                "authorization_header_recorded": False,
+                "cleanup": "not_required",
+            },
+        }
+    )
+    manifest["resources"].append(
+        {
+            "resource_type": "linode_instance",
+            "target": redacted_target_metadata(),
+        }
+    )
+    return manifest
+
+
+def public_safe_provider_failure(provider_error: ProviderError) -> JsonMap:
+    failure = {
+        "category": provider_error.category,
+        "message": provider_error.public_message,
+        "request_sent": provider_error.request_sent,
+        "response_received": provider_error.response_received,
+        "status_code": provider_error.status_code,
+        "raw_response_recorded": False,
+        "raw_payload_recorded": False,
+        "url_recorded": False,
+        "authorization_header_recorded": False,
+    }
+    if provider_error.status_code is None:
+        failure.pop("status_code")
+    return failure
+
+
+def failed_provider_state_assessment() -> JsonMap:
+    return {
+        "status": "provider_read_failed",
+        "source": "provider_failure_report",
+        "provider_read_performed": False,
+        "provider_read_attempted": True,
+        "provider_local_match": "not_checked",
+        "snapshot_current_present": None,
+        "snapshot_in_progress_present": None,
+        "configured_snapshot_label_matches_current": None,
+        "stale_metadata": {
+            "detected": False,
+            "possible": True,
+            "reason": "provider_read_failed",
+        },
+        "uncertain_state": True,
+        "refresh_before_mutation": {
+            "required": True,
+            "command": "inspect",
+            "reason": "read current provider backup state before any future mutation path is allowed",
+        },
+    }
 
 
 def provider_local_state_assessment(config: BackupLabConfig, backups: list[JsonMap]) -> JsonMap:
