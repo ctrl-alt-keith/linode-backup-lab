@@ -22,6 +22,8 @@ python -m pip install -e .
 That installs the `linode-backup-lab` console script:
 
 ```sh
+linode-backup-lab --help
+linode-backup-lab --version
 linode-backup-lab plan --config path/to/backup-lab.toml
 LINODE_TOKEN=... linode-backup-lab inspect --config path/to/backup-lab.toml
 linode-backup-lab inspect-replay --config path/to/backup-lab.toml --fixture tests/fixtures/sanitized/inspect-provider-backups.normalized.json
@@ -40,10 +42,13 @@ environment:
 
 ```sh
 pipx install .
+linode-backup-lab --help
 ```
 
-This repository is installable from a checkout. It does not include PyPI
-publishing, release automation, or package publication workflows.
+This repository is installable from a checkout and can be smoke-checked from
+built wheel and source distribution artifacts. Release-prep details live in
+[`docs/releasing.md`](docs/releasing.md). It does not include PyPI publishing,
+GitHub release creation, tag publishing, or provider-live release checks.
 
 ## Dry-Run Plan
 
