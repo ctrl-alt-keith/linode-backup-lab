@@ -71,8 +71,8 @@ Repo-local rules take precedence only for repo-specific behavior.
 - `make check` runs the unit test suite under `tests/unit`.
 - Live provider checks and credentialed checks are outside local blocking
   validation right now.
-- No release automation or package publication workflow is currently
-  documented for this repository.
+- Release prep, package smoke, and human-gated release publishing targets are
+  documented in `docs/releasing.md`; they do not replace normal PR validation.
 - Keep validation implemented through the Makefile rather than direct tool
   invocation in normal workflow.
 
