@@ -104,6 +104,11 @@ headers, and raw provider response bodies are not emitted.
 
 Inspect is non-interactive and read-only. It does not create snapshots, enable
 or cancel backups, restore backups, mutate Linode resources, or perform cleanup.
+If the provider read fails after local inspect preconditions pass, inspect keeps
+the provider-failure exit code `1` and emits a public-safe JSON failure report.
+The failure report records only coarse failure metadata; it does not emit token
+values, raw provider payloads, provider URLs, authorization headers, target
+values, backup identifiers, labels, or timestamps.
 
 ## Restore Boundary
 

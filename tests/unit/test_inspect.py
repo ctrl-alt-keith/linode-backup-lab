@@ -2,7 +2,8 @@ import json
 import unittest
 
 from linode_backup_lab.config import BackupLabConfig, TargetConfig
-from linode_backup_lab.inspect import create_inspect_manifest
+from linode_backup_lab.inspect import create_inspect_failure_manifest, create_inspect_manifest
+from linode_backup_lab.linode_api import ProviderError
 
 
 class FakeInspectClient:
@@ -354,6 +355,102 @@ class InspectTests(unittest.TestCase):
         self.assertNotIn("private-target-label", manifest_json)
         self.assertNotIn("private-next-label", manifest_json)
         self.assertNotIn("2026-05-06T14:00:00", manifest_json)
+
+    def test_inspect_failure_manifest_is_public_safe_and_retryable(self) -> None:
+        config = BackupLabConfig(
+            schema_version="1",
+            target=TargetConfig(linode_id=112233, snapshot_label="private-target-label"),
+        )
+        error = ProviderError(
+            "raw detail with token-value, private-target-label, and https://provider.example/private",
+            public_message="Linode API read failed with HTTP 503",
+            category="http_error",
+            request_sent=True,
+            response_received=True,
+            status_code=503,
+        )
+
+        manifest = create_inspect_failure_manifest(
+            config,
+            provider_error=error,
+            provider_api_version="v4beta",
+            run_id="inspect-failure-test",
+            created_at="2026-05-06T00:00:00+00:00",
+        )
+        manifest_json = json.dumps(manifest, sort_keys=True)
+
+        self.assertEqual(manifest["status"], "provider_read_failed")
+        self.assertEqual(manifest["provider"], {"name": "linode", "api_version": "v4beta"})
+        self.assertEqual(manifest["provider_read"]["status"], "failed")
+        self.assertEqual(
+            manifest["provider_read"]["failure"],
+            {
+                "category": "http_error",
+                "message": "Linode API read failed with HTTP 503",
+                "request_sent": True,
+                "response_received": True,
+                "status_code": 503,
+                "raw_response_recorded": False,
+                "raw_payload_recorded": False,
+                "url_recorded": False,
+                "authorization_header_recorded": False,
+            },
+        )
+        self.assertEqual(manifest["outcome"]["status"], "provider_read_failed")
+        self.assertEqual(manifest["outcome"]["execution_state"], "failed")
+        self.assertEqual(
+            manifest["outcome"]["retry_classification"],
+            "safe_to_rerun_read_only_after_provider_failure",
+        )
+        self.assertEqual(manifest["review"]["retry_recovery"]["command_retry_classification"], "safe_to_retry")
+        self.assertEqual(manifest["review"]["retry_recovery"]["provider_state_classification"], "state_uncertain")
+        self.assertEqual(manifest["review"]["state_visibility"]["provider_backup_state"], "not_read")
+        self.assertEqual(manifest["state_assessment"]["status"], "provider_read_failed")
+        self.assertIs(manifest["state_assessment"]["uncertain_state"], True)
+        self.assertEqual(manifest["validation"]["status"], "provider_read_failed")
+        self.assertEqual(manifest["safety"]["provider_reads"], "failed")
+        self.assertIs(manifest["safety"]["provider_url_recorded"], False)
+        self.assertIs(manifest["safety"]["authorization_header_recorded"], False)
+        self.assertNotIn("112233", manifest_json)
+        self.assertNotIn("private-target-label", manifest_json)
+        self.assertNotIn("token-value", manifest_json)
+        self.assertNotIn("provider.example", manifest_json)
+
+    def test_generic_inspect_failure_manifest_does_not_claim_provider_request(self) -> None:
+        config = BackupLabConfig(
+            schema_version="1",
+            target=TargetConfig(linode_id=112233, snapshot_label="private-target-label"),
+        )
+        error = ProviderError("private setup detail with token-value")
+
+        manifest = create_inspect_failure_manifest(
+            config,
+            provider_error=error,
+            run_id="inspect-generic-failure-test",
+            created_at="2026-05-06T00:00:00+00:00",
+        )
+        manifest_json = json.dumps(manifest, sort_keys=True)
+
+        self.assertEqual(manifest["command"]["provider_calls"], {"occurred": False, "items": []})
+        self.assertEqual(
+            manifest["provider_read"]["failure"],
+            {
+                "category": "provider_error",
+                "message": "Linode provider read failed",
+                "request_sent": False,
+                "response_received": False,
+                "raw_response_recorded": False,
+                "raw_payload_recorded": False,
+                "url_recorded": False,
+                "authorization_header_recorded": False,
+            },
+        )
+        self.assertIs(manifest["outcome"]["provider_reads"][0]["request_sent"], False)
+        self.assertIs(manifest["outcome"]["provider_reads"][0]["response_received"], False)
+        self.assertIs(manifest["state_assessment"]["provider_read_attempted"], False)
+        self.assertNotIn("112233", manifest_json)
+        self.assertNotIn("private-target-label", manifest_json)
+        self.assertNotIn("token-value", manifest_json)
 
 
 if __name__ == "__main__":

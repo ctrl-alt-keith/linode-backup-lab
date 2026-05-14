@@ -85,13 +85,17 @@ def _missing_count(items: list[JsonMap], key: str) -> int:
 
 
 def _command_retry_classification(outcome: JsonMap) -> str:
+    retry_classification = outcome.get("retry_classification")
+    if retry_classification in {
+        "safe_to_rerun_no_provider_request",
+        "safe_to_rerun_read_only",
+        "safe_to_rerun_read_only_after_provider_failure",
+    }:
+        return "safe_to_retry"
     if outcome.get("operator_review_required"):
         return "operator_review_required"
     if outcome.get("state_uncertain"):
         return "state_uncertain"
-    retry_classification = outcome.get("retry_classification")
-    if retry_classification in {"safe_to_rerun_no_provider_request", "safe_to_rerun_read_only"}:
-        return "safe_to_retry"
     return "operator_review_required"
 
 
@@ -103,7 +107,7 @@ def _provider_state_classification(state_assessment: JsonMap) -> str:
         return "refresh_before_retry"
     if state_status == "provider_local_mismatch":
         return "operator_review_required"
-    if state_status == "uncertain_provider_state":
+    if state_status in {"uncertain_provider_state", "provider_read_failed"}:
         return "state_uncertain"
     return "operator_review_required"
 
