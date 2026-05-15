@@ -17,6 +17,13 @@ class ConfigError(ValueError):
 
 
 @dataclass(frozen=True)
+class ConfigValidationIssue:
+    path: str
+    message: str
+    hint: str
+
+
+@dataclass(frozen=True)
 class TargetConfig:
     linode_id: int
     snapshot_label: str
@@ -40,40 +47,103 @@ def load_config(path: str | Path) -> BackupLabConfig:
     except tomllib.TOMLDecodeError as exc:
         raise ConfigError(f"invalid TOML config: {exc}") from exc
 
-    return validate_config(raw_config)
+    return validate_config(raw_config, config_path=config_path)
 
 
-def validate_config(raw_config: dict[str, Any]) -> BackupLabConfig:
+def validate_config(raw_config: dict[str, Any], *, config_path: str | Path | None = None) -> BackupLabConfig:
+    issues: list[ConfigValidationIssue] = []
     allowed_root_keys = {"schema_version", "target"}
     unknown_root_keys = sorted(set(raw_config) - allowed_root_keys)
     if unknown_root_keys:
-        raise ConfigError(f"unsupported config key(s): {', '.join(unknown_root_keys)}")
+        issues.append(
+            ConfigValidationIssue(
+                path="<root>",
+                message=f"unsupported config key(s): {', '.join(unknown_root_keys)}",
+                hint="Remove unsupported top-level keys; supported keys are schema_version and target.",
+            )
+        )
 
     schema_version = raw_config.get("schema_version")
     if schema_version != CONFIG_SCHEMA_VERSION:
-        raise ConfigError(f"unsupported config schema_version {schema_version!r}; expected {CONFIG_SCHEMA_VERSION!r}")
+        issues.append(
+            ConfigValidationIssue(
+                path="schema_version",
+                message=f"unsupported config schema_version {schema_version!r}; expected {CONFIG_SCHEMA_VERSION!r}",
+                hint=f'Set schema_version = "{CONFIG_SCHEMA_VERSION}".',
+            )
+        )
 
     raw_target = raw_config.get("target")
     if not isinstance(raw_target, dict):
-        raise ConfigError("config requires a [target] table")
+        issues.append(
+            ConfigValidationIssue(
+                path="target",
+                message="config requires a [target] table",
+                hint="Add a [target] table with linode_id and snapshot_label.",
+            )
+        )
+        raise ConfigError(format_config_validation_error(issues, config_path=config_path))
 
     allowed_target_keys = {"linode_id", "snapshot_label"}
     unknown_target_keys = sorted(set(raw_target) - allowed_target_keys)
     if unknown_target_keys:
-        raise ConfigError(f"unsupported target key(s): {', '.join(unknown_target_keys)}")
+        issues.append(
+            ConfigValidationIssue(
+                path="target",
+                message=f"unsupported target key(s): {', '.join(unknown_target_keys)}",
+                hint="Remove unsupported [target] keys; supported keys are linode_id and snapshot_label.",
+            )
+        )
 
     linode_id = raw_target.get("linode_id")
     if isinstance(linode_id, bool) or not isinstance(linode_id, int) or linode_id <= 0:
-        raise ConfigError("target.linode_id must be a positive integer")
+        issues.append(
+            ConfigValidationIssue(
+                path="target.linode_id",
+                message="target.linode_id must be a positive integer",
+                hint="Set target.linode_id to the numeric Linode instance id, for example 123456.",
+            )
+        )
 
     snapshot_label = raw_target.get("snapshot_label")
     if not isinstance(snapshot_label, str):
-        raise ConfigError("target.snapshot_label must be a string with length 1..255 after trimming whitespace")
-    snapshot_label = snapshot_label.strip()
-    if not SNAPSHOT_LABEL_MIN_LENGTH <= len(snapshot_label) <= SNAPSHOT_LABEL_MAX_LENGTH:
-        raise ConfigError("target.snapshot_label must be a string with length 1..255 after trimming whitespace")
+        issues.append(
+            ConfigValidationIssue(
+                path="target.snapshot_label",
+                message="target.snapshot_label must be a string with length 1..255 after trimming whitespace",
+                hint='Set target.snapshot_label to the manual snapshot label, for example "pre-upgrade".',
+            )
+        )
+        snapshot_label = ""
+    else:
+        snapshot_label = snapshot_label.strip()
+        if not SNAPSHOT_LABEL_MIN_LENGTH <= len(snapshot_label) <= SNAPSHOT_LABEL_MAX_LENGTH:
+            issues.append(
+                ConfigValidationIssue(
+                    path="target.snapshot_label",
+                    message="target.snapshot_label must be a string with length 1..255 after trimming whitespace",
+                    hint="Use a non-empty label no longer than 255 characters after trimming whitespace.",
+                )
+            )
+
+    if issues:
+        raise ConfigError(format_config_validation_error(issues, config_path=config_path))
 
     return BackupLabConfig(
         schema_version=schema_version,
         target=TargetConfig(linode_id=linode_id, snapshot_label=snapshot_label),
     )
+
+
+def format_config_validation_error(
+    issues: list[ConfigValidationIssue],
+    *,
+    config_path: str | Path | None = None,
+) -> str:
+    location = f" {config_path}" if config_path is not None else ""
+    issue_label = "issue" if len(issues) == 1 else "issues"
+    lines = [f"invalid config{location}: {len(issues)} validation {issue_label}"]
+    for issue in issues:
+        lines.append(f"- {issue.path}: {issue.message}")
+        lines.append(f"  hint: {issue.hint}")
+    return "\n".join(lines)

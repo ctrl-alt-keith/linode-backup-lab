@@ -135,6 +135,37 @@ class CliTests(unittest.TestCase):
         self.assertEqual(exit_code, 2)
         self.assertEqual(stdout.getvalue(), "")
         self.assertIn("unsupported config schema_version", stderr.getvalue())
+        self.assertIn(str(path), stderr.getvalue())
+        self.assertIn("hint: Set schema_version", stderr.getvalue())
+
+    def test_invalid_config_cli_groups_local_validation_errors(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "backup-lab.toml"
+            path.write_text(
+                '\n'.join(
+                    [
+                        'schema_version = "2"',
+                        "",
+                        "[target]",
+                        "linode_id = false",
+                        'snapshot_label = ""',
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            stdout = StringIO()
+            stderr = StringIO()
+
+            exit_code = main(["plan", "--config", str(path)], stdout=stdout, stderr=stderr)
+
+        error_text = stderr.getvalue()
+        self.assertEqual(exit_code, 2)
+        self.assertEqual(stdout.getvalue(), "")
+        self.assertIn("3 validation issues", error_text)
+        self.assertIn("schema_version", error_text)
+        self.assertIn("target.linode_id", error_text)
+        self.assertIn("target.snapshot_label", error_text)
+        self.assertIn("hint:", error_text)
 
     def test_unknown_command_is_rejected_before_dispatch(self) -> None:
         parser = build_parser()

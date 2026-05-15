@@ -86,6 +86,53 @@ class ConfigTests(unittest.TestCase):
             with self.assertRaises(ConfigError):
                 load_config(path)
 
+    def test_reports_grouped_validation_failures_with_paths_and_hints(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "backup-lab.toml"
+            path.write_text(
+                '\n'.join(
+                    [
+                        'schema_version = "2"',
+                        'schedule = "daily"',
+                        "",
+                        "[target]",
+                        "linode_id = 0",
+                        'snapshot_label = " "',
+                        'extra = "unsupported"',
+                    ]
+                ),
+                encoding="utf-8",
+            )
+
+            with self.assertRaises(ConfigError) as raised:
+                load_config(path)
+
+        message = str(raised.exception)
+        self.assertIn(f"invalid config {path}: 5 validation issues", message)
+        self.assertIn("- <root>: unsupported config key(s): schedule", message)
+        self.assertIn("- schema_version: unsupported config schema_version '2'; expected '1'", message)
+        self.assertIn("- target: unsupported target key(s): extra", message)
+        self.assertIn("- target.linode_id: target.linode_id must be a positive integer", message)
+        self.assertIn(
+            "- target.snapshot_label: target.snapshot_label must be a string with length 1..255",
+            message,
+        )
+        self.assertIn("hint: Set schema_version", message)
+        self.assertIn("hint: Set target.linode_id", message)
+
+    def test_reports_missing_target_table_with_remediation_hint(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "backup-lab.toml"
+            path.write_text('schema_version = "1"\n', encoding="utf-8")
+
+            with self.assertRaises(ConfigError) as raised:
+                load_config(path)
+
+        message = str(raised.exception)
+        self.assertIn(f"invalid config {path}: 1 validation issue", message)
+        self.assertIn("- target: config requires a [target] table", message)
+        self.assertIn("hint: Add a [target] table with linode_id and snapshot_label.", message)
+
     def test_rejects_snapshot_label_longer_than_linode_create_snapshot_limit(self) -> None:
         with TemporaryDirectory() as tmpdir:
             path = Path(tmpdir) / "backup-lab.toml"
