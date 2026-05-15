@@ -1,11 +1,20 @@
 from io import StringIO
 import json
 from pathlib import Path
+import re
 from tempfile import TemporaryDirectory
 import unittest
 
 from linode_backup_lab.cli import main
+from linode_backup_lab.config import BackupLabConfig, TargetConfig
+from linode_backup_lab.inspect import create_inspect_failure_manifest, create_inspect_manifest
 from linode_backup_lab.linode_api import ProviderError
+from linode_backup_lab.plan import create_plan_manifest
+from linode_backup_lab.replay import create_replay_inspect_manifest
+from linode_backup_lab.snapshot import snapshot_manifest
+
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
 BASE_TOP_LEVEL_FIELDS = {
@@ -131,6 +140,16 @@ class ContractFailingInspectClient:
         )
 
 
+class StaticInspectClient:
+    provider_api_version = "v4"
+
+    def __init__(self, backups: list[dict[str, object]]) -> None:
+        self.backups = backups
+
+    def list_backups(self, linode_id: int) -> list[dict[str, object]]:
+        return self.backups
+
+
 class ManifestContractTests(unittest.TestCase):
     def test_emitted_manifests_share_command_required_subset(self) -> None:
         manifests = [
@@ -157,6 +176,68 @@ class ManifestContractTests(unittest.TestCase):
                 self.assertEqual(manifest["command"]["config_source"], "explicit")
                 self.assertIs(manifest["command"]["config_path_recorded"], False)
                 self.assert_provider_calls_shape(manifest["command"]["provider_calls"])
+
+    def test_validation_status_vocabulary_documents_current_emitted_values(self) -> None:
+        config = BackupLabConfig(
+            schema_version="1",
+            target=TargetConfig(linode_id=445566, snapshot_label="private-contract-label"),
+        )
+        emitted_statuses = {
+            create_plan_manifest(config)["validation"]["status"],
+            snapshot_manifest(config=config)["validation"]["status"],
+            create_inspect_manifest(
+                config,
+                client=StaticInspectClient(
+                    [
+                        {
+                            "backup_label": "private-contract-label",
+                            "backup_kind": "snapshot",
+                            "snapshot_state": "current",
+                        }
+                    ]
+                ),
+            )["validation"]["status"],
+            create_inspect_manifest(
+                config,
+                client=StaticInspectClient(
+                    [
+                        {
+                            "backup_label": "other-private-label",
+                            "backup_kind": "snapshot",
+                            "snapshot_state": "current",
+                        }
+                    ]
+                ),
+            )["validation"]["status"],
+            create_inspect_manifest(
+                config,
+                client=StaticInspectClient(
+                    [
+                        {
+                            "backup_label": "private-contract-label",
+                            "backup_kind": "snapshot",
+                            "snapshot_state": "in_progress",
+                        }
+                    ]
+                ),
+            )["validation"]["status"],
+            create_inspect_failure_manifest(
+                config,
+                provider_error=ProviderError("private provider detail", request_sent=True),
+            )["validation"]["status"],
+            create_replay_inspect_manifest(
+                config,
+                fixture_backups=[
+                    {
+                        "backup_label": "SANITIZED_CONTRACT_LABEL",
+                        "backup_kind": "snapshot",
+                        "snapshot_state": "current",
+                    }
+                ],
+            )["validation"]["status"],
+        }
+
+        self.assertEqual(emitted_statuses, self.documented_validation_statuses())
 
     def test_plan_emitted_json_contract_keeps_dry_run_shape_and_redaction(self) -> None:
         manifest, emitted = self.emit_manifest(["plan"])
@@ -327,6 +408,16 @@ class ManifestContractTests(unittest.TestCase):
         self.assertIsInstance(provider_calls["items"], list)
         for item in provider_calls["items"]:
             self.assertLessEqual({"kind", "method", "operation"}, set(item))
+
+    def documented_validation_statuses(self) -> set[str]:
+        docs = (REPO_ROOT / "docs" / "manifest-cli-contract.md").read_text(encoding="utf-8")
+        section = re.search(
+            r"^## Validation Status Vocabulary\n(?P<body>.*?)(?=^## |\Z)",
+            docs,
+            flags=re.MULTILINE | re.DOTALL,
+        )
+        self.assertIsNotNone(section)
+        return set(re.findall(r"^\| `([^`]+)` \|", section.group("body"), flags=re.MULTILINE))
 
     def assert_redacted_target(self, target: dict[str, object]) -> None:
         self.assertEqual(
