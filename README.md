@@ -13,7 +13,7 @@ safety-oriented, dry-run-first, and validated through `make check`.
 
 ## Installation
 
-Requires Python 3.10 or newer.
+Requires Python 3.13 or newer.
 
 Install from a repository checkout for local development:
 

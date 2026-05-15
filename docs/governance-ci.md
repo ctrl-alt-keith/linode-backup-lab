@@ -9,21 +9,17 @@ settings so repo changes and hosted configuration can be reviewed separately.
 The repo currently defines these GitHub Actions workflows:
 
 - `.github/workflows/check.yml` runs on pull requests and pushes to `main`.
-  It validates the declared Python support floor and current interpreter range
-  with `make check` on Python 3.10, 3.11, 3.12, and 3.13. Its required status
-  check names are:
-  - `make check (Python 3.10)`
-  - `make check (Python 3.11)`
-  - `make check (Python 3.12)`
-  - `make check (Python 3.13)`
+  It validates the current supported Python version with `make check` on
+  Python 3.13. Its required status check name is:
+  - `make check`
 - `.github/workflows/authoritative-source-check.yml` runs on pull requests.
   Its required status check name is
   `authoritative-source-check / authoritative-source-check`.
 
-Do not rename either workflow job or the check workflow's Python matrix display
-names without also updating hosted branch protection required status checks. The
-display workflow names may appear as `Check` and `Authoritative Source Check`,
-but branch protection should use the status check names listed above.
+Do not rename either workflow job without also updating hosted branch
+protection required status checks. The display workflow names may appear as
+`Check` and `Authoritative Source Check`, but branch protection should use the
+status check names listed above.
 
 ## Dependabot
 
@@ -46,10 +42,7 @@ The intended hosted branch protection for `main` is:
 - require pull requests before merge;
 - require status checks before merge;
 - require these status checks:
-  - `make check (Python 3.10)`
-  - `make check (Python 3.11)`
-  - `make check (Python 3.12)`
-  - `make check (Python 3.13)`
+  - `make check`
   - `authoritative-source-check / authoritative-source-check`
 - require branches to be up to date before merge when GitHub presents that
   option for the status-check rule;

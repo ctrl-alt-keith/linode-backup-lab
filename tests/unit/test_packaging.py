@@ -1,10 +1,6 @@
 from pathlib import Path
+import tomllib
 import unittest
-
-try:  # pragma: no cover - exercised only on Python 3.10
-    import tomllib
-except ModuleNotFoundError:  # pragma: no cover - exercised only on Python 3.10
-    import tomli as tomllib  # type: ignore[no-redef]
 
 
 class PackagingTests(unittest.TestCase):

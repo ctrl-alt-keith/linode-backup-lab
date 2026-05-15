@@ -5,11 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
-
-try:  # pragma: no cover - exercised only on Python 3.10
-    import tomllib
-except ModuleNotFoundError:  # pragma: no cover - exercised only on Python 3.10
-    import tomli as tomllib  # type: ignore[no-redef]
+import tomllib
 
 CONFIG_SCHEMA_VERSION = "1"
 SNAPSHOT_LABEL_MIN_LENGTH = 1
