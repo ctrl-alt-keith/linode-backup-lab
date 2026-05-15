@@ -8,7 +8,13 @@ from pathlib import Path
 
 from .config import BackupLabConfig
 from .inspect import inspect_summary, public_safe_backup_state
-from .linode_api import DEFAULT_PROVIDER_API_VERSION, DOCUMENTED_BACKUP_FIELDS, JsonMap
+from .linode_api import (
+    DEFAULT_PROVIDER_API_VERSION,
+    DOCUMENTED_BACKUP_FIELDS,
+    JsonMap,
+    PROVIDER_AUTHORIZATION_HEADER,
+    PROVIDER_BEARER_TOKEN_PREFIX,
+)
 from .manifest import create_manifest
 from .plan import mutation_intent, redacted_target_metadata
 from .review import backup_state_visibility, mutation_review, provider_call_review, retry_recovery_review
@@ -36,8 +42,8 @@ RAW_PROVIDER_FIELDS = frozenset(
 )
 UNSAFE_FIXTURE_PATTERNS = (
     re.compile(r"https?://", re.IGNORECASE),
-    re.compile(r"\bAuthorization\b", re.IGNORECASE),
-    re.compile(r"\bBearer\s+", re.IGNORECASE),
+    re.compile(rf"\b{re.escape(PROVIDER_AUTHORIZATION_HEADER)}\b", re.IGNORECASE),
+    re.compile(rf"\b{re.escape(PROVIDER_BEARER_TOKEN_PREFIX)}\s+", re.IGNORECASE),
     re.compile(r"\bLINODE_TOKEN\b"),
     re.compile(r"\d{4}-\d{2}-\d{2}T\d{2}:"),
 )
