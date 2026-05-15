@@ -193,6 +193,110 @@ class SanitizedFixtureTests(unittest.TestCase):
         self.assertNotIn("SANITIZED_SNAPSHOT_LABEL", report_json)
         self.assertNotIn("SANITIZED_PROVIDER_TIMESTAMP", report_json)
 
+    def test_expanded_sanitized_fixture_corpus_replays_edge_cases(self) -> None:
+        cases = [
+            (
+                "inspect-provider-backups.status-transitions.normalized.json",
+                "SANITIZED_SNAPSHOT_LABEL_CURRENT",
+                {
+                    "backup_count": 3,
+                    "automatic_backup_count": 1,
+                    "snapshot_current_present": True,
+                    "snapshot_in_progress_present": True,
+                    "available_backup_count": 2,
+                    "status_counts": {"running": 1, "successful": 2},
+                },
+                {
+                    "available": 0,
+                    "backup_kind": 0,
+                    "backup_status": 0,
+                    "config_count": 0,
+                    "disk_count": 0,
+                    "provider_type": 0,
+                    "snapshot_state_for_snapshot": 0,
+                },
+                {
+                    "fixture_local_match": None,
+                    "snapshot_current_present": True,
+                    "snapshot_in_progress_present": True,
+                },
+            ),
+            (
+                "inspect-provider-backups.missing-optional-fields.normalized.json",
+                "SANITIZED_SNAPSHOT_LABEL_SPARSE",
+                {
+                    "backup_count": 2,
+                    "automatic_backup_count": 1,
+                    "snapshot_current_present": False,
+                    "snapshot_in_progress_present": False,
+                    "available_backup_count": 0,
+                    "status_counts": {},
+                },
+                {
+                    "available": 2,
+                    "backup_kind": 0,
+                    "backup_status": 2,
+                    "config_count": 2,
+                    "disk_count": 2,
+                    "provider_type": 2,
+                    "snapshot_state_for_snapshot": 1,
+                },
+                {
+                    "fixture_local_match": None,
+                    "snapshot_current_present": False,
+                    "snapshot_in_progress_present": False,
+                },
+            ),
+        ]
+
+        for fixture_name, snapshot_label, expected_summary, expected_unknowns, expected_state in cases:
+            with self.subTest(fixture_name=fixture_name):
+                backups = load_sanitized_inspect_fixture(SANITIZED_FIXTURE_DIR / fixture_name)
+                config = BackupLabConfig(
+                    schema_version="1",
+                    target=TargetConfig(linode_id=1, snapshot_label=snapshot_label),
+                )
+                report = create_replay_inspect_manifest(
+                    config,
+                    fixture_backups=backups,
+                    run_id="sanitized-expanded-fixture-replay",
+                    created_at="not-recorded",
+                )
+
+                self.assertEqual(report["action"], "inspect-replay")
+                self.assertEqual(report["status"], "replayed")
+                self.assertEqual(report["command"]["provider_calls"], {"occurred": False, "items": []})
+                self.assertEqual(report["provider_read"]["status"], "not_performed")
+                self.assertEqual(report["fixture_replay"]["source"], "sanitized_fixture")
+                self.assertEqual(
+                    {key: value for key, value in report["inspection_summary"].items() if key != "target"},
+                    expected_summary,
+                )
+                self.assertEqual(report["review"]["state_visibility"]["unknown_fields"], expected_unknowns)
+                for key, value in expected_state.items():
+                    self.assertEqual(report["state_assessment"][key], value)
+                self.assertEqual(report["state_assessment"]["status"], "fixture_replayed")
+                self.assertTrue(report["state_assessment"]["refresh_before_mutation"]["required"])
+                self.assertEqual(report["review"]["retry_recovery"]["provider_state_classification"], "refresh_before_retry")
+
+                report_json = json.dumps(report, sort_keys=True)
+                self.assertNotIn("SANITIZED_BACKUP_ID", report_json)
+                self.assertNotIn("SANITIZED_SNAPSHOT_LABEL", report_json)
+                self.assertNotIn("SANITIZED_PROVIDER_TIMESTAMP", report_json)
+
+    def test_all_sanitized_fixture_files_load_as_replay_safe_normalized_arrays(self) -> None:
+        fixture_paths = sorted(SANITIZED_FIXTURE_DIR.glob("*.normalized.json"))
+        self.assertGreaterEqual(len(fixture_paths), 3)
+
+        for fixture_path in fixture_paths:
+            with self.subTest(fixture=fixture_path.name):
+                backups = load_sanitized_inspect_fixture(fixture_path)
+
+                self.assertIsInstance(backups, list)
+                self.assertTrue(all(isinstance(backup, dict) for backup in backups))
+                raw_provider_keys = {"id", "label", "created", "finished", "updated", "configs", "disks"}
+                self.assertTrue(all(not (raw_provider_keys & set(backup)) for backup in backups))
+
     def test_replay_fixture_loader_rejects_unsanitized_sensitive_normalized_values(self) -> None:
         with TemporaryDirectory() as tmpdir:
             fixture_path = Path(tmpdir) / "unsafe-normalized.json"
