@@ -91,6 +91,40 @@ class LinodeApiTests(unittest.TestCase):
             ],
         )
 
+    def test_get_backup_generates_read_only_backup_detail_path(self) -> None:
+        seen: list[tuple[str, str, dict[str, object], dict[str, object] | None]] = []
+
+        def transport(
+            method: str,
+            url: str,
+            headers: dict[str, object],
+            body: dict[str, object] | None,
+        ) -> dict[str, object]:
+            seen.append((method, url, headers, body))
+            return {
+                "id": 987,
+                "label": "pre-upgrade",
+                "status": "successful",
+                "type": "snapshot",
+            }
+
+        client = LinodeApiClient(token="token", transport=transport)
+
+        backup = client.get_backup(123, 987)
+
+        self.assertEqual(backup["backup_id"], 987)
+        self.assertEqual(
+            seen,
+            [
+                (
+                    "GET",
+                    "https://api.linode.com/v4/linode/instances/123/backups/987",
+                    {"Authorization": "Bearer token", "Content-Type": "application/json"},
+                    None,
+                )
+            ],
+        )
+
     def test_client_rejects_non_get_methods_before_transport(self) -> None:
         seen: list[str] = []
 

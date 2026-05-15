@@ -20,6 +20,8 @@ from urllib.request import Request, urlopen
 DEFAULT_PROVIDER_API_VERSION = "v4"
 SUPPORTED_PROVIDER_API_VERSIONS = ("v4", "v4beta")
 DEFAULT_BASE_URL = "https://api.linode.com"
+PROVIDER_AUTHORIZATION_HEADER = "Authorization"
+PROVIDER_BEARER_TOKEN_PREFIX = "Bearer"
 DOCUMENTED_BACKUP_FIELDS = (
     "available",
     "configs",
@@ -128,7 +130,7 @@ class LinodeApiClient:
         if method != "GET" or body is not None:
             raise ProviderReadOnlyViolation("LinodeApiClient only permits read-only GET requests")
         headers = {
-            "Authorization": f"Bearer {self.token}",
+            PROVIDER_AUTHORIZATION_HEADER: f"{PROVIDER_BEARER_TOKEN_PREFIX} {self.token}",
             "Content-Type": "application/json",
         }
         return self.transport(method, self.config.base_url.rstrip("/") + path, headers, body)
