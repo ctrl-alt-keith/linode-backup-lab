@@ -169,6 +169,33 @@ class InspectTests(unittest.TestCase):
         self.assertEqual(manifest["inspection_summary"]["status_counts"], {"running": 1, "successful": 1})
         self.assertIs(manifest["inspection_summary"]["snapshot_in_progress_present"], True)
         self.assertEqual(
+            manifest["review_summary"],
+            {
+                "headline": "inspect: inspected; 2 backups; uncertain_provider_state",
+                "provider_read": "performed",
+                "state": {
+                    "status": "uncertain_provider_state",
+                    "provider_local_match": "unknown",
+                    "snapshot_current_present": False,
+                    "snapshot_in_progress_present": True,
+                    "refresh_before_mutation_required": True,
+                },
+                "backups": {
+                    "total": 2,
+                    "available": 1,
+                    "automatic": 1,
+                    "status_counts": [
+                        {"status": "running", "count": 1},
+                        {"status": "successful", "count": 1},
+                    ],
+                },
+                "attention": [
+                    "Provider snapshot comparison is uncertain: snapshot_in_progress_present.",
+                    "refresh provider backup state immediately before any future mutation path is allowed",
+                ],
+            },
+        )
+        self.assertEqual(
             manifest["review"],
             {
                 "provider_calls": {
@@ -315,6 +342,13 @@ class InspectTests(unittest.TestCase):
             manifest["review"]["retry_recovery"]["provider_state_classification"],
             "operator_review_required",
         )
+        self.assertEqual(
+            manifest["review_summary"]["attention"],
+            [
+                "Configured snapshot label did not match the current provider snapshot.",
+                "refresh provider backup state immediately before any future mutation path is allowed",
+            ],
+        )
         self.assertNotIn("private-target-label", manifest_json)
         self.assertNotIn("different-provider-label", manifest_json)
 
@@ -407,6 +441,31 @@ class InspectTests(unittest.TestCase):
         self.assertEqual(manifest["review"]["state_visibility"]["provider_backup_state"], "not_read")
         self.assertEqual(manifest["state_assessment"]["status"], "provider_read_failed")
         self.assertIs(manifest["state_assessment"]["uncertain_state"], True)
+        self.assertEqual(
+            manifest["review_summary"],
+            {
+                "headline": "inspect: provider_read_failed; backup count unavailable; provider_read_failed",
+                "provider_read": "failed",
+                "state": {
+                    "status": "provider_read_failed",
+                    "provider_local_match": "not_checked",
+                    "snapshot_current_present": None,
+                    "snapshot_in_progress_present": None,
+                    "refresh_before_mutation_required": True,
+                },
+                "backups": {
+                    "total": None,
+                    "available": None,
+                    "automatic": None,
+                    "status_counts": [],
+                },
+                "attention": [
+                    "Provider read failed (http_error): Linode API read failed with HTTP 503",
+                    "Provider backup state was not read; rerun inspect after the provider issue is resolved.",
+                    "read current provider backup state before any future mutation path is allowed",
+                ],
+            },
+        )
         self.assertEqual(manifest["validation"]["status"], "provider_read_failed")
         self.assertEqual(manifest["safety"]["provider_reads"], "failed")
         self.assertIs(manifest["safety"]["provider_url_recorded"], False)

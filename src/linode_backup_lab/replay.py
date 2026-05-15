@@ -7,7 +7,7 @@ import re
 from pathlib import Path
 
 from .config import BackupLabConfig
-from .inspect import inspect_summary, public_safe_backup_state
+from .inspect import inspect_review_summary, inspect_summary, public_safe_backup_state
 from .linode_api import (
     DEFAULT_PROVIDER_API_VERSION,
     DOCUMENTED_BACKUP_FIELDS,
@@ -189,6 +189,13 @@ def create_replay_inspect_manifest(
                 "target": redacted_target_metadata(),
                 **summary,
             },
+            "review_summary": inspect_review_summary(
+                action=command,
+                report_status="replayed",
+                summary=summary,
+                state_assessment=state_assessment,
+                provider_read_status="not_performed",
+            ),
             "normalized_backup_state": public_backups,
             "review": {
                 "provider_calls": provider_call_review(provider_calls),

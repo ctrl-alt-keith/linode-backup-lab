@@ -106,6 +106,13 @@ def create_inspect_manifest(
                 "target": redacted_target_metadata(),
                 **summary,
             },
+            "review_summary": inspect_review_summary(
+                action=command,
+                report_status="inspected",
+                summary=summary,
+                state_assessment=state_assessment,
+                provider_read_status="performed",
+            ),
             "normalized_backup_state": public_backups,
             "review": {
                 "provider_calls": provider_call_review(provider_calls),
@@ -238,6 +245,14 @@ def create_inspect_failure_manifest(
                 "available_backup_count": None,
                 "status_counts": {},
             },
+            "review_summary": inspect_review_summary(
+                action=command,
+                report_status="provider_read_failed",
+                summary=failed_inspect_summary(),
+                state_assessment=state_assessment,
+                provider_read_status="failed",
+                provider_failure=failure,
+            ),
             "normalized_backup_state": [],
             "review": {
                 "provider_calls": provider_call_review(provider_calls),
@@ -455,6 +470,102 @@ def inspect_summary(public_backups: list[JsonMap]) -> JsonMap:
         "available_backup_count": sum(1 for backup in public_backups if backup.get("available") is True),
         "status_counts": dict(sorted(status_counts.items())),
     }
+
+
+def failed_inspect_summary() -> JsonMap:
+    return {
+        "backup_count": None,
+        "automatic_backup_count": None,
+        "snapshot_current_present": None,
+        "snapshot_in_progress_present": None,
+        "available_backup_count": None,
+        "status_counts": {},
+    }
+
+
+def inspect_review_summary(
+    *,
+    action: str,
+    report_status: str,
+    summary: JsonMap,
+    state_assessment: JsonMap,
+    provider_read_status: str,
+    provider_failure: JsonMap | None = None,
+) -> JsonMap:
+    """Return a compact, deterministic review aid derived from contract fields."""
+
+    state_status = str(state_assessment["status"])
+    backup_count = summary["backup_count"]
+    headline = f"{action}: {report_status}; {format_backup_count(backup_count)}; {state_status}"
+
+    attention = inspect_attention_notes(
+        provider_read_status=provider_read_status,
+        state_assessment=state_assessment,
+        provider_failure=provider_failure,
+    )
+    return {
+        "headline": headline,
+        "provider_read": provider_read_status,
+        "state": {
+            "status": state_status,
+            "provider_local_match": state_assessment["provider_local_match"],
+            "snapshot_current_present": state_assessment["snapshot_current_present"],
+            "snapshot_in_progress_present": state_assessment["snapshot_in_progress_present"],
+            "refresh_before_mutation_required": state_assessment["refresh_before_mutation"]["required"],
+        },
+        "backups": {
+            "total": backup_count,
+            "available": summary["available_backup_count"],
+            "automatic": summary["automatic_backup_count"],
+            "status_counts": sorted_status_counts(summary["status_counts"]),
+        },
+        "attention": attention,
+    }
+
+
+def inspect_attention_notes(
+    *,
+    provider_read_status: str,
+    state_assessment: JsonMap,
+    provider_failure: JsonMap | None = None,
+) -> list[str]:
+    notes: list[str] = []
+
+    if provider_read_status == "failed":
+        failure = provider_failure or {}
+        category = failure.get("category", "provider_error")
+        message = failure.get("message", "Provider read failed")
+        notes.append(f"Provider read failed ({category}): {message}")
+        notes.append("Provider backup state was not read; rerun inspect after the provider issue is resolved.")
+    elif state_assessment["status"] == "provider_local_mismatch":
+        notes.append("Configured snapshot label did not match the current provider snapshot.")
+    elif state_assessment["status"] == "uncertain_provider_state":
+        reason = state_assessment["stale_metadata"]["reason"]
+        notes.append(f"Provider snapshot comparison is uncertain: {reason}.")
+    elif state_assessment["status"] == "fixture_replayed":
+        notes.append("Fixture replay is non-live and does not prove current provider state.")
+
+    if state_assessment["refresh_before_mutation"]["required"]:
+        notes.append(state_assessment["refresh_before_mutation"]["reason"])
+
+    return notes
+
+
+def format_backup_count(backup_count: object) -> str:
+    if backup_count is None:
+        return "backup count unavailable"
+    if backup_count == 1:
+        return "1 backup"
+    return f"{backup_count} backups"
+
+
+def sorted_status_counts(status_counts: object) -> list[JsonMap]:
+    if not isinstance(status_counts, Mapping):
+        return []
+    return [
+        {"status": str(status), "count": count}
+        for status, count in sorted(status_counts.items(), key=lambda item: str(item[0]))
+    ]
 
 
 def require_linode_token(environ: Mapping[str, str]) -> str:

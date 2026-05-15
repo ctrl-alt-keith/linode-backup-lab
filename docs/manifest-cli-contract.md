@@ -349,6 +349,14 @@ provider read results for review and debugging. It must not be treated as an
 automatic control-loop input, desired-state signal, or mutation gate unless a
 future design explicitly introduces and documents that behavior.
 
+Inspect and inspect-replay reports include an additive `review_summary` object
+for manual review. It provides a compact headline, sorted status counts, a
+small state snapshot, and deterministic attention notes derived from existing
+contract fields. Automation should continue to consume the stable structured
+fields it already depends on, such as `inspection_summary`,
+`normalized_backup_state`, `review`, `state_assessment`, `outcome`, and
+`validation`.
+
 The `review.state_visibility.unknown_fields` counts missing normalized provider
 fields after redaction. For snapshot backups, `snapshot_state_for_snapshot`
 counts snapshot records whose current/in-progress state was not known. Dry-run
