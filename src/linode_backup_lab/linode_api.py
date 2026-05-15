@@ -210,20 +210,41 @@ def normalize_backup_collection(raw: JsonMap) -> list[JsonMap]:
 def normalize_backup(raw: JsonMap, *, backup_kind: str | None = None, snapshot_state: str | None = None) -> JsonMap:
     """Normalize one provider backup response into project field names."""
 
-    backup_id = raw.get("id")
+    backup_id = _provider_identifier(raw.get("id"))
     configs = raw.get("configs")
     disks = raw.get("disks")
+    provider_type = _provider_string(raw.get("type"))
     return {
         "backup_id": backup_id,
-        "backup_label": raw.get("label"),
-        "backup_status": raw.get("status"),
-        "backup_kind": backup_kind or raw.get("type"),
+        "backup_label": _provider_string(raw.get("label")),
+        "backup_status": _provider_string(raw.get("status")),
+        "backup_kind": backup_kind or provider_type,
         "snapshot_state": snapshot_state,
-        "provider_type": raw.get("type"),
-        "available": raw.get("available"),
-        "created_at": raw.get("created"),
-        "finished_at": raw.get("finished"),
-        "updated_at": raw.get("updated"),
+        "provider_type": provider_type,
+        "available": _provider_bool(raw.get("available")),
+        "created_at": _provider_string(raw.get("created")),
+        "finished_at": _provider_string(raw.get("finished")),
+        "updated_at": _provider_string(raw.get("updated")),
         "config_count": len(configs) if isinstance(configs, list) else None,
         "disk_count": len(disks) if isinstance(disks, list) else None,
     }
+
+
+def _provider_identifier(value: object) -> int | str | None:
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int | str):
+        return value
+    return None
+
+
+def _provider_string(value: object) -> str | None:
+    if isinstance(value, str):
+        return value
+    return None
+
+
+def _provider_bool(value: object) -> bool | None:
+    if isinstance(value, bool):
+        return value
+    return None

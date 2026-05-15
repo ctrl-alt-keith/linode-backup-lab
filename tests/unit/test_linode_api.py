@@ -366,6 +366,55 @@ class LinodeApiTests(unittest.TestCase):
         self.assertEqual(backup["config_count"], None)
         self.assertEqual(backup["disk_count"], 1)
 
+    def test_normalize_backup_degrades_nested_scalar_fields_to_unknown(self) -> None:
+        backup = normalize_backup(
+            {
+                "id": {"value": 656},
+                "label": ["private-label"],
+                "status": {"state": "successful"},
+                "type": ["snapshot"],
+                "available": "true",
+                "created": {"timestamp": "2026-05-06T12:00:00"},
+                "finished": ["2026-05-06T12:05:00"],
+                "updated": 12345,
+                "configs": {"items": []},
+                "disks": None,
+            }
+        )
+
+        self.assertEqual(
+            backup,
+            {
+                "backup_id": None,
+                "backup_label": None,
+                "backup_status": None,
+                "backup_kind": None,
+                "snapshot_state": None,
+                "provider_type": None,
+                "available": None,
+                "created_at": None,
+                "finished_at": None,
+                "updated_at": None,
+                "config_count": None,
+                "disk_count": None,
+            },
+        )
+
+    def test_normalize_backup_preserves_malformed_timestamp_strings_without_parsing(self) -> None:
+        backup = normalize_backup(
+            {
+                "id": 657,
+                "status": "successful",
+                "type": "snapshot",
+                "available": False,
+                "created": "not-a-provider-timestamp",
+            }
+        )
+
+        self.assertEqual(backup["created_at"], "not-a-provider-timestamp")
+        self.assertEqual(backup["finished_at"], None)
+        self.assertEqual(backup["updated_at"], None)
+
     def test_normalize_backup_collection_flattens_provider_groups_and_snapshot_states(self) -> None:
         backups = normalize_backup_collection(
             {
@@ -406,6 +455,48 @@ class LinodeApiTests(unittest.TestCase):
         self.assertEqual(backups[0]["snapshot_state"], "in_progress")
         self.assertEqual(backups[0]["backup_status"], "provider-added-progress-state")
         self.assertEqual(backups[0]["provider_type"], "provider-added-snapshot-kind")
+
+    def test_normalize_backup_collection_keeps_partial_snapshot_object_without_nested_noise(self) -> None:
+        backups = normalize_backup_collection(
+            {
+                "automatic": [
+                    "not-a-backup",
+                    {"id": True, "status": {"state": "successful"}, "type": {"kind": "auto"}},
+                ],
+                "snapshot": {
+                    "current": {
+                        "status": "provider-added-state",
+                        "type": {"kind": "provider-added-snapshot-kind"},
+                        "created": ["bad-timestamp-shape"],
+                    },
+                    "in_progress": [],
+                },
+            }
+        )
+
+        self.assertEqual(len(backups), 2)
+        self.assertEqual(
+            backups[0],
+            {
+                "backup_id": None,
+                "backup_label": None,
+                "backup_status": None,
+                "backup_kind": "automatic",
+                "snapshot_state": None,
+                "provider_type": None,
+                "available": None,
+                "created_at": None,
+                "finished_at": None,
+                "updated_at": None,
+                "config_count": None,
+                "disk_count": None,
+            },
+        )
+        self.assertEqual(backups[1]["backup_kind"], "snapshot")
+        self.assertEqual(backups[1]["snapshot_state"], "current")
+        self.assertEqual(backups[1]["backup_status"], "provider-added-state")
+        self.assertEqual(backups[1]["provider_type"], None)
+        self.assertEqual(backups[1]["created_at"], None)
 
 
 if __name__ == "__main__":
