@@ -31,6 +31,12 @@ and validation metadata instead. `snapshot_label` is validated locally as a
 trimmed string with length `1..255`, matching the official Create a snapshot
 request body constraint for `label`.
 
+Invalid config diagnostics are operator-facing and path-aware. They report the
+explicit config path, group local validation failures when multiple fields are
+invalid, name the affected config paths such as `schema_version` and
+`target.linode_id`, and include remediation hints. These diagnostics do not
+change the config schema, normalization behavior, or public manifest contract.
+
 The inspect flow uses only the documented List backups `GET` operation for the
 configured Linode target. The provider boundary normalizes documented backup
 record fields such as `id`, `label`, `status`, `type`, `available`, `created`,
