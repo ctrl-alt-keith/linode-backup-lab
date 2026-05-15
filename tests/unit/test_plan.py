@@ -44,6 +44,7 @@ class PlanTests(unittest.TestCase):
                 "command": {
                     "name": "plan",
                     "config_source": "explicit",
+                    "config_path_recorded": False,
                     "provider_calls": {
                         "occurred": False,
                         "items": [],

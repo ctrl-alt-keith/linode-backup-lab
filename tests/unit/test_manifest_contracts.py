@@ -5,6 +5,7 @@ from tempfile import TemporaryDirectory
 import unittest
 
 from linode_backup_lab.cli import main
+from linode_backup_lab.linode_api import ProviderError
 
 
 BASE_TOP_LEVEL_FIELDS = {
@@ -50,6 +51,13 @@ REVIEW_PACKET_FIELDS = {
     "mutations",
     "state_visibility",
     "retry_recovery",
+}
+
+SHARED_COMMAND_FIELDS = {
+    "name",
+    "config_source",
+    "config_path_recorded",
+    "provider_calls",
 }
 
 
@@ -107,7 +115,49 @@ class ContractInspectClient:
         ]
 
 
+class ContractFailingInspectClient:
+    provider_api_version = "v4"
+
+    def __init__(self, token: str) -> None:
+        self.token = token
+
+    def list_backups(self, linode_id: int) -> list[dict[str, object]]:
+        raise ProviderError(
+            f"raw provider detail token={self.token} linode={linode_id}",
+            public_message="Linode API returned invalid JSON",
+            category="invalid_json",
+            request_sent=True,
+            response_received=True,
+        )
+
+
 class ManifestContractTests(unittest.TestCase):
+    def test_emitted_manifests_share_command_required_subset(self) -> None:
+        manifests = [
+            self.emit_manifest(["plan"])[0],
+            self.emit_manifest(
+                ["inspect"],
+                environ={"LINODE_TOKEN": "contract-token-secret"},
+                inspect_client_factory=ContractInspectClient,
+            )[0],
+            self.emit_manifest(
+                ["inspect"],
+                environ={"LINODE_TOKEN": "contract-token-secret"},
+                inspect_client_factory=ContractFailingInspectClient,
+                expected_exit_code=1,
+                expected_stderr="Linode API returned invalid JSON",
+            )[0],
+            self.emit_manifest(["inspect-replay"], use_fixture=True)[0],
+        ]
+
+        for manifest in manifests:
+            with self.subTest(action=manifest["action"], status=manifest["status"]):
+                self.assertLessEqual(SHARED_COMMAND_FIELDS, set(manifest["command"]))
+                self.assertIsInstance(manifest["command"]["name"], str)
+                self.assertEqual(manifest["command"]["config_source"], "explicit")
+                self.assertIs(manifest["command"]["config_path_recorded"], False)
+                self.assert_provider_calls_shape(manifest["command"]["provider_calls"])
+
     def test_plan_emitted_json_contract_keeps_dry_run_shape_and_redaction(self) -> None:
         manifest, emitted = self.emit_manifest(["plan"])
 
@@ -121,6 +171,7 @@ class ManifestContractTests(unittest.TestCase):
 
         self.assertEqual(manifest["command"]["name"], "plan")
         self.assertEqual(manifest["command"]["config_source"], "explicit")
+        self.assertIs(manifest["command"]["config_path_recorded"], False)
         self.assertEqual(manifest["command"]["provider_calls"], {"occurred": False, "items": []})
         self.assertEqual(
             manifest["review"]["provider_calls"],
@@ -238,25 +289,44 @@ class ManifestContractTests(unittest.TestCase):
         *,
         environ: dict[str, str] | None = None,
         inspect_client_factory: object | None = None,
+        expected_exit_code: int = 0,
+        expected_stderr: str = "",
+        use_fixture: bool = False,
     ) -> tuple[dict[str, object], str]:
         with TemporaryDirectory() as tmpdir:
             config_path = Path(tmpdir) / "backup-lab.toml"
             write_config(config_path)
+            fixture_args = []
+            if use_fixture:
+                fixture_path = Path(tmpdir) / "inspect-fixture.json"
+                write_replay_fixture(fixture_path)
+                fixture_args = ["--fixture", str(fixture_path)]
             stdout = StringIO()
             stderr = StringIO()
 
             exit_code = main(
-                [*command, "--config", str(config_path)],
+                [*command, "--config", str(config_path), *fixture_args],
                 stdout=stdout,
                 stderr=stderr,
                 environ=environ,
                 inspect_client_factory=inspect_client_factory,
             )
 
-        self.assertEqual(exit_code, 0)
-        self.assertEqual(stderr.getvalue(), "")
+        self.assertEqual(exit_code, expected_exit_code)
+        if expected_stderr:
+            self.assertIn(expected_stderr, stderr.getvalue())
+        else:
+            self.assertEqual(stderr.getvalue(), "")
         emitted = stdout.getvalue()
         return json.loads(emitted), emitted
+
+    def assert_provider_calls_shape(self, provider_calls: object) -> None:
+        self.assertIsInstance(provider_calls, dict)
+        self.assertEqual(set(provider_calls), {"occurred", "items"})
+        self.assertIsInstance(provider_calls["occurred"], bool)
+        self.assertIsInstance(provider_calls["items"], list)
+        for item in provider_calls["items"]:
+            self.assertLessEqual({"kind", "method", "operation"}, set(item))
 
     def assert_redacted_target(self, target: dict[str, object]) -> None:
         self.assertEqual(
@@ -274,6 +344,30 @@ class ManifestContractTests(unittest.TestCase):
                 },
             },
         )
+
+
+def write_replay_fixture(path: Path) -> None:
+    path.write_text(
+        json.dumps(
+            [
+                {
+                    "backup_id": "SANITIZED_BACKUP_ID",
+                    "backup_label": "SANITIZED_SNAPSHOT_LABEL",
+                    "backup_status": "successful",
+                    "backup_kind": "snapshot",
+                    "snapshot_state": "current",
+                    "provider_type": "snapshot",
+                    "available": True,
+                    "created_at": "SANITIZED_PROVIDER_TIMESTAMP",
+                    "finished_at": "SANITIZED_PROVIDER_TIMESTAMP",
+                    "updated_at": "SANITIZED_PROVIDER_TIMESTAMP",
+                    "config_count": 1,
+                    "disk_count": 1,
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
 
 
 if __name__ == "__main__":
