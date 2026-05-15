@@ -6,11 +6,8 @@ import argparse
 import json
 import os
 import sys
+import tomllib
 
-try:
-    import tomllib
-except ModuleNotFoundError:  # pragma: no cover - exercised only on Python 3.10
-    import tomli as tomllib  # type: ignore[no-redef]
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from typing import Callable, Mapping, Sequence, TextIO
