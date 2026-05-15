@@ -239,6 +239,48 @@ class ManifestContractTests(unittest.TestCase):
 
         self.assertEqual(emitted_statuses, self.documented_validation_statuses())
 
+    def test_schema_artifact_groundwork_inventories_current_top_level_fields(self) -> None:
+        config = BackupLabConfig(
+            schema_version="1",
+            target=TargetConfig(linode_id=445566, snapshot_label="private-contract-label"),
+        )
+        manifests = [
+            create_plan_manifest(config),
+            snapshot_manifest(config=config),
+            create_inspect_manifest(config, client=ContractInspectClient("contract-token-secret")),
+            create_inspect_failure_manifest(
+                config,
+                provider_error=ProviderError("private provider detail", request_sent=True),
+            ),
+            create_replay_inspect_manifest(
+                config,
+                fixture_backups=[
+                    {
+                        "backup_id": "SANITIZED_BACKUP_ID",
+                        "backup_label": "SANITIZED_CONTRACT_LABEL",
+                        "backup_status": "successful",
+                        "backup_kind": "snapshot",
+                        "snapshot_state": "current",
+                        "provider_type": "snapshot",
+                        "available": True,
+                        "created_at": "SANITIZED_PROVIDER_TIMESTAMP",
+                        "finished_at": "SANITIZED_PROVIDER_TIMESTAMP",
+                        "updated_at": "SANITIZED_PROVIDER_TIMESTAMP",
+                        "config_count": 1,
+                        "disk_count": 1,
+                    }
+                ],
+            ),
+        ]
+        emitted_top_level_fields = sorted({field for manifest in manifests for field in manifest})
+        groundwork = (REPO_ROOT / "docs" / "schema-artifact-groundwork.md").read_text(encoding="utf-8")
+
+        for field in emitted_top_level_fields:
+            with self.subTest(field=field):
+                self.assertIn(f"`{field}`", groundwork)
+        self.assertIn("not a generated schema", groundwork)
+        self.assertIn("not a new validation gate", groundwork)
+
     def test_plan_emitted_json_contract_keeps_dry_run_shape_and_redaction(self) -> None:
         manifest, emitted = self.emit_manifest(["plan"])
 

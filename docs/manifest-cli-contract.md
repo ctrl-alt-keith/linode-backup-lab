@@ -114,6 +114,12 @@ The same approach applies to nested objects: keep a known field set for the
 object being consumed, validate that subset, and treat extra fields as
 extensions unless a future contract explicitly documents a breaking change.
 
+Future schema-artifact work is tracked as additive groundwork in
+[`schema-artifact-groundwork.md`](schema-artifact-groundwork.md). That document
+inventories the current emitted manifest families and records the path toward
+generated artifacts without making a generated schema part of the current
+contract.
+
 ## Mutation Intent
 
 `mutation_intent` separates four concepts that future mutation design must keep
