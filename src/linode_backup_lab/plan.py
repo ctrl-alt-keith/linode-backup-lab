@@ -111,6 +111,7 @@ def create_plan_manifest(
             "command": {
                 "name": command,
                 "config_source": "explicit",
+                "config_path_recorded": False,
                 "provider_calls": provider_calls,
             },
             "config": {

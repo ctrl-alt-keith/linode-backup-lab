@@ -57,6 +57,26 @@ contract.
   credentials, whether provider reads or mutations occurred, redaction posture,
   and cleanup state.
 
+## Shared Command Block
+
+Every current emitted manifest with a `command` object includes this shared
+required-field subset:
+
+- `command.name`: the CLI command or command-shaped helper that produced the
+  manifest.
+- `command.config_source`: where project config came from. Current commands use
+  `explicit` because `--config` is required.
+- `command.config_path_recorded`: whether the local config path is emitted.
+  Current public-safe manifests record `false`.
+- `command.provider_calls`: structured provider-call metadata with `occurred`
+  and `items`. Each item records the provider call `kind`, `method`, and
+  `operation` when calls occur.
+
+Commands may add command-specific fields, such as `token_source`,
+`fixture_source`, or `fixture_path_recorded`, without changing this shared
+subset. Current plan and snapshot dry-runs, live inspect reports, inspect
+failure reports, and inspect replay reports all preserve this command subset.
+
 ## Compatibility For Strict Consumers
 
 Manifest `schema_version` records the baseline project manifest shape. Within a
