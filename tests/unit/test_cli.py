@@ -344,6 +344,30 @@ class CliTests(unittest.TestCase):
         self.assertEqual(manifest["review"]["state_visibility"]["provider_backup_state"], "fixture_replay")
         self.assertEqual(manifest["state_assessment"]["source"], "sanitized_fixture_replay")
         self.assertIs(manifest["state_assessment"]["provider_read_performed"], False)
+        self.assertEqual(
+            manifest["review_summary"],
+            {
+                "headline": "inspect-replay: replayed; 1 backup; fixture_replayed",
+                "provider_read": "not_performed",
+                "state": {
+                    "status": "fixture_replayed",
+                    "provider_local_match": "not_evaluated_live",
+                    "snapshot_current_present": True,
+                    "snapshot_in_progress_present": False,
+                    "refresh_before_mutation_required": True,
+                },
+                "backups": {
+                    "total": 1,
+                    "available": 1,
+                    "automatic": 0,
+                    "status_counts": [{"status": "successful", "count": 1}],
+                },
+                "attention": [
+                    "Fixture replay is non-live and does not prove current provider state.",
+                    "fixture replay is non-live and cannot prove current provider state",
+                ],
+            },
+        )
         self.assertEqual(manifest["review"]["retry_recovery"]["provider_state_classification"], "refresh_before_retry")
         self.assertEqual(manifest["safety"]["credentials"], "not_required")
         self.assertIs(manifest["safety"]["linode_token_required"], False)
