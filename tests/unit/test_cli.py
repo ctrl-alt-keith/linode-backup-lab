@@ -293,6 +293,61 @@ class CliTests(unittest.TestCase):
         self.assertNotIn("token-value", stderr.getvalue())
         self.assertNotIn("pre-upgrade", stderr.getvalue())
 
+    def test_inspect_provider_setup_failure_does_not_claim_request_or_leak_details(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "backup-lab.toml"
+            path.write_text(
+                '\n'.join(
+                    [
+                        'schema_version = "1"',
+                        "",
+                        "[target]",
+                        "linode_id = 112233",
+                        'snapshot_label = "pre-upgrade"',
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            stdout = StringIO()
+            stderr = StringIO()
+
+            def failing_factory(token: str) -> FakeInspectClient:
+                raise ProviderError(
+                    f"raw setup detail token={token} linode=112233 label=pre-upgrade",
+                    public_message="Linode provider client setup failed",
+                    category="provider_setup_failed",
+                    request_sent=False,
+                    response_received=False,
+                )
+
+            exit_code = main(
+                ["inspect", "--config", str(path)],
+                stdout=stdout,
+                stderr=stderr,
+                environ={"LINODE_TOKEN": "token-value"},
+                inspect_client_factory=failing_factory,
+            )
+
+        manifest_json = stdout.getvalue()
+        manifest = json.loads(manifest_json)
+        self.assertEqual(exit_code, 1)
+        self.assertIn("Linode provider client setup failed", stderr.getvalue())
+        self.assertEqual(manifest["status"], "provider_read_failed")
+        self.assertEqual(manifest["provider"], {"name": "linode", "api_version": "v4"})
+        self.assertEqual(manifest["command"]["provider_calls"], {"occurred": False, "items": []})
+        self.assertEqual(manifest["provider_read"]["failure"]["category"], "provider_setup_failed")
+        self.assertIs(manifest["provider_read"]["failure"]["request_sent"], False)
+        self.assertIs(manifest["provider_read"]["failure"]["response_received"], False)
+        self.assertIs(manifest["outcome"]["provider_reads"][0]["request_sent"], False)
+        self.assertIs(manifest["outcome"]["provider_reads"][0]["response_received"], False)
+        self.assertIs(manifest["state_assessment"]["provider_read_attempted"], False)
+        self.assertNotIn("token-value", manifest_json)
+        self.assertNotIn("pre-upgrade", manifest_json)
+        self.assertNotIn("112233", manifest_json)
+        self.assertNotIn("token-value", stderr.getvalue())
+        self.assertNotIn("pre-upgrade", stderr.getvalue())
+        self.assertNotIn("112233", stderr.getvalue())
+
     def test_inspect_replay_outputs_fixture_manifest_without_credentials_or_provider_reads(self) -> None:
         with TemporaryDirectory() as tmpdir:
             config_path = Path(tmpdir) / "backup-lab.toml"
