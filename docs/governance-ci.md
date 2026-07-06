@@ -65,7 +65,7 @@ Use read-only GitHub commands to inspect hosted state before changing this
 document or hosted settings:
 
 ```sh
-gh pr view 26 --json number,title,state,body,statusCheckRollup,url
+gh pr view 53 --json number,title,state,body,statusCheckRollup,url
 gh api repos/ctrl-alt-keith/linode-backup-lab/branches/main --jq '{name: .name, protected: .protected}'
 gh api repos/ctrl-alt-keith/linode-backup-lab/actions/workflows --jq '.workflows[] | {name, path, state}'
 ```
