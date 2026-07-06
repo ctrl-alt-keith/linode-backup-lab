@@ -33,21 +33,26 @@ requests before merge.
 
 ## Hosted Branch Protection
 
-PR #26 added the workflow and Dependabot files, then left branch protection and
-required status checks as a hosted GitHub follow-up. As of May 14, 2026, direct
-repository inspection showed `main` was not protected.
+Hosted branch protection is configured in GitHub rather than in tracked
+repository files. Direct repository inspection on July 6, 2026 showed `main` is
+protected.
 
-The intended hosted branch protection for `main` is:
+The current hosted branch protection for `main` is:
 
 - require pull requests before merge;
 - require status checks before merge;
 - require these status checks:
   - `make check`
   - `authoritative-source-check / authoritative-source-check`
-- require branches to be up to date before merge when GitHub presents that
-  option for the status-check rule;
-- keep administrator bypass and review-count policy as an explicit repository
-  owner decision.
+- do not require branches to be up to date before merge;
+- allow administrator bypass;
+- require zero approving reviews.
+
+Keep changes to these settings explicit and source-verified. In this
+solo-operator repository, status checks and pull request reviewability are the
+primary integrity controls; review-count, strict-up-to-date, and administrator
+bypass settings are repository owner decisions rather than repo-local workflow
+defaults.
 
 Do not store secret values, private identifiers, non-public URLs, workplace
 metadata, or token values in repository settings, workflow configuration,
