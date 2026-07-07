@@ -208,6 +208,48 @@ class CliTests(unittest.TestCase):
         self.assertIn("--config", stderr.getvalue())
         self.assertIn("--fixture", stderr.getvalue())
 
+    def test_inspect_replay_invalid_fixture_returns_precondition_error_without_manifest(self) -> None:
+        cases = [
+            ("malformed-json", "{not json", "inspect replay fixture is not valid JSON"),
+            (
+                "raw-provider-shape",
+                json.dumps(
+                    [
+                        {
+                            "id": 123456,
+                            "label": "private-snapshot-label",
+                            "status": "successful",
+                            "type": "snapshot",
+                        }
+                    ]
+                ),
+                "contains raw provider fields",
+            ),
+        ]
+
+        for name, fixture_text, expected_error in cases:
+            with self.subTest(name=name):
+                with TemporaryDirectory() as tmpdir:
+                    config_path = Path(tmpdir) / "backup-lab.toml"
+                    write_config(config_path)
+                    fixture_path = Path(tmpdir) / f"{name}.json"
+                    fixture_path.write_text(fixture_text, encoding="utf-8")
+                    stdout = StringIO()
+                    stderr = StringIO()
+
+                    exit_code = main(
+                        ["inspect-replay", "--config", str(config_path), "--fixture", str(fixture_path)],
+                        stdout=stdout,
+                        stderr=stderr,
+                        environ={},
+                    )
+
+                self.assertEqual(exit_code, 2)
+                self.assertEqual(stdout.getvalue(), "")
+                self.assertIn(expected_error, stderr.getvalue())
+                self.assertNotIn("private-snapshot-label", stderr.getvalue())
+                self.assertNotIn("123456", stderr.getvalue())
+
     def test_inspect_requires_linode_token_from_environment(self) -> None:
         with TemporaryDirectory() as tmpdir:
             path = Path(tmpdir) / "backup-lab.toml"
