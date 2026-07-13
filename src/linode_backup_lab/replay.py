@@ -15,8 +15,8 @@ from .linode_api import (
     PROVIDER_AUTHORIZATION_HEADER,
     PROVIDER_BEARER_TOKEN_PREFIX,
 )
-from .manifest import create_manifest
-from .plan import mutation_intent, redacted_target_metadata
+from .manifest import create_manifest, redacted_target_metadata
+from .plan import mutation_intent
 from .review import backup_state_visibility, mutation_review, provider_call_review, retry_recovery_review
 
 PUBLIC_SAFE_PLACEHOLDER_PREFIX = "SANITIZED_"

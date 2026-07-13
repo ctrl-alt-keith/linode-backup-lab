@@ -79,7 +79,7 @@ class CliTests(unittest.TestCase):
         package_version.assert_called_once_with("linode-backup-lab")
 
     def test_version_after_subcommand_prints_package_version_and_exits(self) -> None:
-        for command in ("plan", "inspect", "inspect-replay"):
+        for command in ("config-check", "plan", "inspect", "inspect-replay"):
             with self.subTest(command=command):
                 output = StringIO()
 
@@ -105,6 +105,43 @@ class CliTests(unittest.TestCase):
 
         self.assertEqual(raised.exception.code, 2)
         self.assertIn("--config", stderr.getvalue())
+
+    def test_config_check_requires_explicit_config_path(self) -> None:
+        parser = build_parser()
+        stderr = StringIO()
+
+        with redirect_stderr(stderr), self.assertRaises(SystemExit) as raised:
+            parser.parse_args(["config-check"])
+
+        self.assertEqual(raised.exception.code, 2)
+        self.assertIn("--config", stderr.getvalue())
+
+    def test_config_check_outputs_public_safe_validation_manifest(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "backup-lab.toml"
+            write_config(path)
+            stdout = StringIO()
+            stderr = StringIO()
+
+            exit_code = main(["config-check", "--config", str(path)], stdout=stdout, stderr=stderr, environ={})
+
+        manifest_json = stdout.getvalue()
+        manifest = json.loads(manifest_json)
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(stderr.getvalue(), "")
+        self.assertEqual(manifest["action"], "config-check")
+        self.assertEqual(manifest["status"], "valid")
+        self.assertIs(manifest["dry_run"], True)
+        self.assertEqual(manifest["command"]["config_source"], "explicit")
+        self.assertEqual(manifest["command"]["provider_calls"], {"occurred": False, "items": []})
+        self.assertEqual(manifest["validation"]["status"], "passed")
+        self.assertIn("provider_state_not_checked", manifest["validation"]["checks"])
+        self.assertEqual(manifest["safety"]["credentials"], "not_required")
+        self.assertIs(manifest["safety"]["linode_token_required"], False)
+        self.assertEqual(manifest["safety"]["provider_reads"], "not_performed")
+        self.assertEqual(manifest["safety"]["provider_mutations"], "not_performed")
+        self.assertNotIn("123", manifest_json)
+        self.assertNotIn("pre-upgrade", manifest_json)
 
     def test_plan_outputs_dry_run_manifest(self) -> None:
         with TemporaryDirectory() as tmpdir:

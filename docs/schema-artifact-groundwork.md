@@ -29,6 +29,13 @@ All current manifests share the base fields:
 - `status`
 - `resources`
 
+Current `config-check` reports add:
+
+- `command`
+- `config`
+- `validation`
+- `safety`
+
 Current `plan` and dry-run `snapshot` reports add:
 
 - `command`

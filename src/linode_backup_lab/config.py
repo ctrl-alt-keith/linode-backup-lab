@@ -7,6 +7,8 @@ from pathlib import Path
 from typing import Any
 import tomllib
 
+from .manifest import create_manifest, no_provider_calls, redacted_target_metadata
+
 CONFIG_SCHEMA_VERSION = "1"
 SNAPSHOT_LABEL_MIN_LENGTH = 1
 SNAPSHOT_LABEL_MAX_LENGTH = 255
@@ -48,6 +50,64 @@ def load_config(path: str | Path) -> BackupLabConfig:
         raise ConfigError(f"invalid TOML config: {exc}") from exc
 
     return validate_config(raw_config, config_path=config_path)
+
+
+def create_config_check_manifest(
+    config: BackupLabConfig,
+    *,
+    command: str = "config-check",
+    run_id: str | None = None,
+    created_at: str | None = None,
+) -> dict[str, Any]:
+    """Create a public-safe config-only validation report."""
+
+    provider_calls = no_provider_calls()
+    manifest = create_manifest(
+        action=command,
+        dry_run=True,
+        run_id=run_id,
+        created_at=created_at,
+    )
+    manifest.update(
+        {
+            "status": "valid",
+            "command": {
+                "name": command,
+                "config_source": "explicit",
+                "config_path_recorded": False,
+                "provider_calls": provider_calls,
+            },
+            "config": {
+                "schema_version": config.schema_version,
+                "target": redacted_target_metadata(),
+            },
+            "validation": {
+                "status": "passed",
+                "checks": [
+                    "explicit_config_path",
+                    "config_schema_version_supported",
+                    "target_linode_id_valid",
+                    "target_snapshot_label_valid",
+                    "provider_state_not_checked",
+                ],
+            },
+            "safety": {
+                "credentials": "not_required",
+                "linode_token_required": False,
+                "provider_reads": "not_performed",
+                "provider_mutations": "not_performed",
+                "target_values": "redacted",
+                "cleanup": "not_required",
+            },
+        }
+    )
+    manifest["resources"].append(
+        {
+            "resource_type": "linode_instance",
+            "target": redacted_target_metadata(),
+        }
+    )
+    return manifest
 
 
 def validate_config(raw_config: dict[str, Any], *, config_path: str | Path | None = None) -> BackupLabConfig:

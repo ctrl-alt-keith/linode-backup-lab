@@ -79,6 +79,21 @@ built wheel and source distribution artifacts. Release-prep details live in
 automated GitHub release creation, automated tag publishing, provider-live
 release checks, restore execution, or snapshot execution.
 
+## Config Check
+
+Validate the explicit config path without generating a snapshot plan, requiring
+credentials, or contacting Linode:
+
+```sh
+python -m linode_backup_lab config-check --config path/to/backup-lab.toml
+```
+
+There is no implicit config discovery. The `--config` path is required. The
+command emits a public-safe JSON validation report with redacted target
+metadata and `provider_calls.occurred: false`. A valid config-check report only
+means local config shape and field checks passed; it is not provider-state
+evidence, snapshot readiness, restore authorization, or mutation approval.
+
 ## Dry-Run Plan
 
 The first command contract is explicit dry-run planning:

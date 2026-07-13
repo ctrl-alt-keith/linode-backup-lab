@@ -12,7 +12,7 @@ from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from typing import Callable, Mapping, Sequence, TextIO
 
-from .config import ConfigError, load_config
+from .config import ConfigError, create_config_check_manifest, load_config
 from .inspect import InspectClient, create_inspect_failure_manifest, create_inspect_manifest, require_linode_token
 from .linode_api import DEFAULT_PROVIDER_API_VERSION, LinodeApiClient, ProviderError
 from .plan import create_plan_manifest
@@ -44,6 +44,18 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="linode-backup-lab")
     add_version_arg(parser, version_text)
     subparsers = parser.add_subparsers(dest="command", required=True)
+
+    config_check_parser = subparsers.add_parser(
+        "config-check",
+        help="validate config without planning or provider access",
+    )
+    add_version_arg(config_check_parser, version_text)
+    config_check_parser.add_argument(
+        "--config",
+        required=True,
+        type=Path,
+        help="explicit path to a backup lab TOML config",
+    )
 
     plan_parser = subparsers.add_parser("plan", help="generate a dry-run plan manifest")
     add_version_arg(plan_parser, version_text)
@@ -80,7 +92,9 @@ def main(
 
     try:
         config = load_config(args.config)
-        if args.command == "plan":
+        if args.command == "config-check":
+            manifest = create_config_check_manifest(config, command=args.command)
+        elif args.command == "plan":
             manifest = create_plan_manifest(config, command=args.command)
         elif args.command == "inspect":
             token = require_linode_token(env)
