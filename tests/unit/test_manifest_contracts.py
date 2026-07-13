@@ -6,7 +6,7 @@ from tempfile import TemporaryDirectory
 import unittest
 
 from linode_backup_lab.cli import main
-from linode_backup_lab.config import BackupLabConfig, TargetConfig
+from linode_backup_lab.config import BackupLabConfig, TargetConfig, create_config_check_manifest
 from linode_backup_lab.inspect import create_inspect_failure_manifest, create_inspect_manifest
 from linode_backup_lab.linode_api import ProviderError
 from linode_backup_lab.plan import create_plan_manifest
@@ -36,6 +36,13 @@ PLAN_CONTRACT_FIELDS = BASE_TOP_LEVEL_FIELDS | {
     "mutation_intent",
     "state_assessment",
     "outcome",
+    "validation",
+    "safety",
+}
+
+CONFIG_CHECK_CONTRACT_FIELDS = BASE_TOP_LEVEL_FIELDS | {
+    "command",
+    "config",
     "validation",
     "safety",
 }
@@ -153,6 +160,7 @@ class StaticInspectClient:
 class ManifestContractTests(unittest.TestCase):
     def test_emitted_manifests_share_command_required_subset(self) -> None:
         manifests = [
+            self.emit_manifest(["config-check"])[0],
             self.emit_manifest(["plan"])[0],
             self.emit_manifest(
                 ["inspect"],
@@ -183,6 +191,7 @@ class ManifestContractTests(unittest.TestCase):
             target=TargetConfig(linode_id=445566, snapshot_label="private-contract-label"),
         )
         emitted_statuses = {
+            create_config_check_manifest(config)["validation"]["status"],
             create_plan_manifest(config)["validation"]["status"],
             snapshot_manifest(config=config)["validation"]["status"],
             create_inspect_manifest(
@@ -245,6 +254,7 @@ class ManifestContractTests(unittest.TestCase):
             target=TargetConfig(linode_id=445566, snapshot_label="private-contract-label"),
         )
         manifests = [
+            create_config_check_manifest(config),
             create_plan_manifest(config),
             snapshot_manifest(config=config),
             create_inspect_manifest(config, client=ContractInspectClient("contract-token-secret")),
@@ -280,6 +290,43 @@ class ManifestContractTests(unittest.TestCase):
                 self.assertIn(f"`{field}`", groundwork)
         self.assertIn("not a generated schema", groundwork)
         self.assertIn("not a new validation gate", groundwork)
+
+    def test_config_check_emitted_json_contract_reports_config_validation_only(self) -> None:
+        manifest, emitted = self.emit_manifest(["config-check"])
+
+        self.assertLessEqual(CONFIG_CHECK_CONTRACT_FIELDS, set(manifest))
+        self.assertEqual(manifest["action"], "config-check")
+        self.assertIs(manifest["dry_run"], True)
+        self.assertEqual(manifest["status"], "valid")
+        self.assertEqual(manifest["provider"], {"name": "linode", "api_version": "v4"})
+        self.assertEqual(manifest["validation"]["status"], "passed")
+        self.assertEqual(
+            manifest["validation"]["checks"],
+            [
+                "explicit_config_path",
+                "config_schema_version_supported",
+                "target_linode_id_valid",
+                "target_snapshot_label_valid",
+                "provider_state_not_checked",
+            ],
+        )
+
+        self.assertEqual(manifest["command"]["name"], "config-check")
+        self.assertEqual(manifest["command"]["config_source"], "explicit")
+        self.assertIs(manifest["command"]["config_path_recorded"], False)
+        self.assertEqual(manifest["command"]["provider_calls"], {"occurred": False, "items": []})
+
+        self.assertEqual(manifest["safety"]["credentials"], "not_required")
+        self.assertIs(manifest["safety"]["linode_token_required"], False)
+        self.assertEqual(manifest["safety"]["provider_reads"], "not_performed")
+        self.assertEqual(manifest["safety"]["provider_mutations"], "not_performed")
+        self.assertEqual(manifest["safety"]["target_values"], "redacted")
+        self.assertEqual(manifest["safety"]["cleanup"], "not_required")
+
+        self.assert_redacted_target(manifest["config"]["target"])
+        self.assert_redacted_target(manifest["resources"][0]["target"])
+        self.assertNotIn("445566", emitted)
+        self.assertNotIn("private-contract-label", emitted)
 
     def test_plan_emitted_json_contract_keeps_dry_run_shape_and_redaction(self) -> None:
         manifest, emitted = self.emit_manifest(["plan"])

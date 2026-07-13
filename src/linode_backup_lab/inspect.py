@@ -7,8 +7,8 @@ from typing import Any, Mapping, Protocol
 
 from .config import BackupLabConfig
 from .linode_api import DEFAULT_PROVIDER_API_VERSION, DOCUMENTED_BACKUP_FIELDS, JsonMap, ProviderError
-from .manifest import create_manifest
-from .plan import mutation_intent, redacted_target_metadata
+from .manifest import create_manifest, redacted_target_metadata
+from .plan import mutation_intent
 from .review import (
     backup_state_visibility,
     mutation_review,

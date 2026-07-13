@@ -23,6 +23,30 @@ BASE_MANIFEST_FIELDS = (
 )
 
 
+def redacted_target_metadata() -> dict[str, Any]:
+    """Return public-safe target metadata for emitted reports."""
+
+    return {
+        "linode_id": {
+            "present": True,
+            "redacted": True,
+            "validated_as": "positive_integer",
+        },
+        "snapshot_label": {
+            "present": True,
+            "redacted": True,
+            "validated_as": "linode_snapshot_label_length_1_255",
+        },
+    }
+
+
+def no_provider_calls() -> dict[str, Any]:
+    return {
+        "occurred": False,
+        "items": [],
+    }
+
+
 def manifest_required_view(
     manifest: Mapping[str, Any],
     required_fields: Iterable[str] = BASE_MANIFEST_FIELDS,

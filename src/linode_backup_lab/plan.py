@@ -6,35 +6,11 @@ from typing import Any
 
 from .config import BackupLabConfig
 from .linode_api import DEFAULT_PROVIDER_API_VERSION
-from .manifest import create_manifest
+from .manifest import create_manifest, no_provider_calls, redacted_target_metadata
 from .review import mutation_review, not_read_state_visibility, provider_call_review, retry_recovery_review
 
 SNAPSHOT_OPERATION = "snapshot_request"
 SNAPSHOT_REPLACEMENT_SIDE_EFFECT = "replaces_existing_manual_snapshot_for_linode"
-
-
-def redacted_target_metadata() -> dict[str, Any]:
-    """Return public-safe target metadata for plan manifests."""
-
-    return {
-        "linode_id": {
-            "present": True,
-            "redacted": True,
-            "validated_as": "positive_integer",
-        },
-        "snapshot_label": {
-            "present": True,
-            "redacted": True,
-            "validated_as": "linode_snapshot_label_length_1_255",
-        },
-    }
-
-
-def no_provider_calls() -> dict[str, Any]:
-    return {
-        "occurred": False,
-        "items": [],
-    }
 
 
 def mutation_intent(*, planned_operation: str | None, reason: str) -> dict[str, Any]:

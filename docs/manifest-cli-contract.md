@@ -23,6 +23,9 @@ contract.
   whether any provider call was attempted, and `items` records each call's
   `kind`, `method`, and `operation` when calls occur. Callers should not parse
   operation state from a status string.
+- `config-check` records local config validation only. It does not generate a
+  snapshot plan, read provider state, require credentials, or authorize future
+  mutation. Its emitted target metadata stays redacted.
 - Provider write/mutation state is recorded through planned action metadata and
   `safety.provider_mutations`. Current commands always report provider
   mutations as `not_performed`.
@@ -74,8 +77,9 @@ required-field subset:
 
 Commands may add command-specific fields, such as `token_source`,
 `fixture_source`, or `fixture_path_recorded`, without changing this shared
-subset. Current plan and snapshot dry-runs, live inspect reports, inspect
-failure reports, and inspect replay reports all preserve this command subset.
+subset. Current config-check reports, plan and snapshot dry-runs, live inspect
+reports, inspect failure reports, and inspect replay reports all preserve this
+command subset.
 
 ## Validation Status Vocabulary
 
@@ -85,8 +89,8 @@ gates, remediation decisions, or desired-state signals.
 
 | Value | Emitted by | Trigger condition | Review meaning |
 | --- | --- | --- | --- |
+| `passed` | `config-check`; `inspect` success path (`create_inspect_manifest`) | For `config-check`, local config shape and target field checks passed without provider access. For `inspect`, local inspect preconditions passed, the read-only provider request completed, and the current manual snapshot-slot label matched the configured snapshot label. | For `config-check`, the config is locally valid but provider backup state remains unchecked. For matching `inspect`, the live read supports the configured snapshot-slot comparison; this is still read-only evidence, not restore authorization or mutation approval. |
 | `passed_with_unverified_provider_state` | `plan`; snapshot dry-run helper path (`snapshot_manifest(..., dry_run=True)`) | Local config and snapshot-label checks passed, but the command intentionally skipped live provider reads. | The manifest is a valid dry-run review artifact; provider backup state is unverified and a fresh `inspect` is required before any future mutation path. |
-| `passed` | `inspect` success path (`create_inspect_manifest`) | Local inspect preconditions passed, the read-only provider request completed, and the current manual snapshot-slot label matched the configured snapshot label. | The live read supports the configured snapshot-slot comparison; this is still read-only evidence, not restore authorization or mutation approval. |
 | `passed_with_drift_advisory` | `inspect` success path (`create_inspect_manifest`) | Local inspect preconditions passed and the provider read completed, but no current manual snapshot slot matched the configured snapshot label. | The command succeeded, but local config and visible provider state diverge or local metadata may be stale; operator review is required before relying on it for future work. |
 | `passed_with_uncertain_provider_state` | `inspect` success path (`create_inspect_manifest`) | Local inspect preconditions passed and the provider read completed, but the current manual snapshot-slot comparison was not stable, such as when a snapshot is in progress or the current slot label was unavailable. | The command succeeded, but the provider snapshot-slot state cannot prove match or drift; refresh and operator review are needed before any future mutation path. |
 | `provider_read_failed` | `inspect` provider-failure path (`create_inspect_failure_manifest`) | Local config and token preconditions passed, but the read-only provider request failed or did not return usable backup-service state. | The report is public-safe failure evidence; provider state remains uncertain and must be refreshed by a future successful `inspect` before any future mutation path. |
