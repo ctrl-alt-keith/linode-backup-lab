@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from linode_backup_lab.cli import build_parser, main
 from linode_backup_lab.linode_api import ProviderError
@@ -142,6 +142,48 @@ class CliTests(unittest.TestCase):
         self.assertEqual(manifest["safety"]["provider_mutations"], "not_performed")
         self.assertNotIn("123", manifest_json)
         self.assertNotIn("pre-upgrade", manifest_json)
+
+    def test_config_check_invalid_config_reports_all_issues_without_provider_access(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "backup-lab.toml"
+            path.write_text(
+                '\n'.join(
+                    [
+                        'schema_version = "2"',
+                        "",
+                        "[target]",
+                        "linode_id = false",
+                        'snapshot_label = ""',
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            stdout = StringIO()
+            stderr = StringIO()
+            provider_factory = Mock(side_effect=AssertionError("provider client construction"))
+
+            with patch(
+                "linode_backup_lab.cli.require_linode_token",
+                side_effect=AssertionError("provider credential lookup"),
+            ) as credential_lookup:
+                exit_code = main(
+                    ["config-check", "--config", str(path)],
+                    stdout=stdout,
+                    stderr=stderr,
+                    environ={"LINODE_TOKEN": "not-used"},
+                    inspect_client_factory=provider_factory,
+                )
+
+        error_text = stderr.getvalue()
+        self.assertEqual(exit_code, 2)
+        self.assertEqual(stdout.getvalue(), "")
+        self.assertIn(f"invalid config {path}: 3 validation issues", error_text)
+        self.assertIn("schema_version", error_text)
+        self.assertIn("target.linode_id", error_text)
+        self.assertIn("target.snapshot_label", error_text)
+        self.assertEqual(error_text.count("hint:"), 3)
+        credential_lookup.assert_not_called()
+        provider_factory.assert_not_called()
 
     def test_plan_outputs_dry_run_manifest(self) -> None:
         with TemporaryDirectory() as tmpdir:
