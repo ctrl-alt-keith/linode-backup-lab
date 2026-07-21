@@ -163,6 +163,30 @@ class LinodeApiTests(unittest.TestCase):
 
         self.assertEqual(seen, [])
 
+    def test_http_transport_rejects_non_get_methods_before_request(self) -> None:
+        with patch("linode_backup_lab.linode_api.urlopen") as request:
+            with self.assertRaises(ProviderReadOnlyViolation):
+                ReadOnlyHttpTransport()(
+                    "POST",
+                    "https://api.linode.com/v4/linode/instances/112233/backups",
+                    {"Authorization": "Bearer token-value"},
+                    None,
+                )
+
+        request.assert_not_called()
+
+    def test_http_transport_rejects_request_bodies_before_request(self) -> None:
+        with patch("linode_backup_lab.linode_api.urlopen") as request:
+            with self.assertRaises(ProviderReadOnlyViolation):
+                ReadOnlyHttpTransport()(
+                    "GET",
+                    "https://api.linode.com/v4/linode/instances/112233/backups",
+                    {"Authorization": "Bearer token-value"},
+                    {"unexpected": True},
+                )
+
+        request.assert_not_called()
+
     def test_provider_error_defaults_do_not_claim_request_attempt(self) -> None:
         error = ProviderError("private setup detail")
 
