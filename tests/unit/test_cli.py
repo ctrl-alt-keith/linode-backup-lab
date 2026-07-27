@@ -66,6 +66,20 @@ class FailingInspectClient:
         )
 
 
+class FakeHttpResponse:
+    def __init__(self, payload: bytes) -> None:
+        self.payload = payload
+
+    def __enter__(self) -> "FakeHttpResponse":
+        return self
+
+    def __exit__(self, exc_type: object, exc: object, traceback: object) -> None:
+        return None
+
+    def read(self) -> bytes:
+        return self.payload
+
+
 class CliTests(unittest.TestCase):
     def test_version_prints_package_version_and_exits(self) -> None:
         output = StringIO()
@@ -421,6 +435,38 @@ class CliTests(unittest.TestCase):
         self.assertNotIn("112233", manifest_json)
         self.assertNotIn("token-value", stderr.getvalue())
         self.assertNotIn("pre-upgrade", stderr.getvalue())
+
+    def test_inspect_invalid_provider_encoding_emits_safe_failure_manifest(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "backup-lab.toml"
+            write_config(path)
+            stdout = StringIO()
+            stderr = StringIO()
+
+            with patch(
+                "linode_backup_lab.linode_api.urlopen",
+                return_value=FakeHttpResponse(b"\xffprivate-target token-value"),
+            ):
+                exit_code = main(
+                    ["inspect", "--config", str(path)],
+                    stdout=stdout,
+                    stderr=stderr,
+                    environ={"LINODE_TOKEN": "token-value"},
+                )
+
+        manifest_json = stdout.getvalue()
+        manifest = json.loads(manifest_json)
+        self.assertEqual(exit_code, 1)
+        self.assertEqual(manifest["status"], "provider_read_failed")
+        self.assertEqual(
+            manifest["provider_read"]["failure"]["category"],
+            "invalid_response_encoding",
+        )
+        self.assertIn("Linode API returned invalid response encoding", stderr.getvalue())
+        self.assertNotIn("private-target", manifest_json)
+        self.assertNotIn("token-value", manifest_json)
+        self.assertNotIn("private-target", stderr.getvalue())
+        self.assertNotIn("token-value", stderr.getvalue())
 
     def test_inspect_provider_setup_failure_does_not_claim_request_or_leak_details(self) -> None:
         with TemporaryDirectory() as tmpdir:

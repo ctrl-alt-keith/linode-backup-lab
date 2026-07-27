@@ -149,7 +149,7 @@ class ReadOnlyHttpTransport:
         request = Request(url, headers={str(key): str(value) for key, value in headers.items()}, method="GET")
         try:
             with urlopen(request, timeout=self.timeout_seconds) as response:
-                payload = response.read().decode("utf-8")
+                response_body = response.read()
         except HTTPError as exc:
             raise ProviderError(
                 public_message=f"Linode API read failed with HTTP {exc.code}",
@@ -165,6 +165,16 @@ class ReadOnlyHttpTransport:
                 category="network_error",
                 request_sent=True,
                 response_received=False,
+            ) from exc
+
+        try:
+            payload = response_body.decode("utf-8")
+        except UnicodeDecodeError as exc:
+            raise ProviderError(
+                public_message="Linode API returned invalid response encoding",
+                category="invalid_response_encoding",
+                request_sent=True,
+                response_received=True,
             ) from exc
 
         try:

@@ -266,6 +266,27 @@ class LinodeApiTests(unittest.TestCase):
         self.assertNotIn("secret", str(error))
         self.assertNotIn("token-value", str(error))
 
+    def test_http_transport_reports_invalid_encoding_without_raw_payload(self) -> None:
+        with patch(
+            "linode_backup_lab.linode_api.urlopen",
+            return_value=FakeResponse(b"\xffprivate-target token-value"),
+        ):
+            with self.assertRaises(ProviderError) as raised:
+                ReadOnlyHttpTransport()(
+                    "GET",
+                    "https://api.linode.com/v4/linode/instances/112233/backups",
+                    {"Authorization": "Bearer token-value"},
+                    None,
+                )
+
+        error = raised.exception
+        self.assertEqual(str(error), "Linode API returned invalid response encoding")
+        self.assertEqual(error.category, "invalid_response_encoding")
+        self.assertIs(error.request_sent, True)
+        self.assertIs(error.response_received, True)
+        self.assertNotIn("private-target", str(error))
+        self.assertNotIn("token-value", str(error))
+
     def test_http_transport_reports_unexpected_json_shape_without_raw_payload(self) -> None:
         with patch("linode_backup_lab.linode_api.urlopen", return_value=FakeResponse(b'["private-target"]')):
             with self.assertRaises(ProviderError) as raised:
