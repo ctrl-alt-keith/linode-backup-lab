@@ -173,6 +173,26 @@ class ConfigTests(unittest.TestCase):
 
         self.assertEqual(config.target.snapshot_label, snapshot_label)
 
+    def test_trims_snapshot_label_before_returning_config(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "backup-lab.toml"
+            path.write_text(
+                '\n'.join(
+                    [
+                        'schema_version = "1"',
+                        "",
+                        "[target]",
+                        "linode_id = 123",
+                        'snapshot_label = "  pre-upgrade  "',
+                    ]
+                ),
+                encoding="utf-8",
+            )
+
+            config = load_config(path)
+
+        self.assertEqual(config.target.snapshot_label, "pre-upgrade")
+
 
 if __name__ == "__main__":
     unittest.main()
