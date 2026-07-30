@@ -130,7 +130,3 @@ def main(
     json.dump(manifest, output, indent=2, sort_keys=True)
     output.write("\n")
     return 0
-
-
-if __name__ == "__main__":  # pragma: no cover
-    raise SystemExit(main())
