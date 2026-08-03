@@ -14,7 +14,7 @@ import json
 from dataclasses import dataclass
 from typing import Any, Callable
 from urllib.error import HTTPError, URLError
-from urllib.parse import quote
+from urllib.parse import quote, urlsplit
 from urllib.request import Request, urlopen
 
 DEFAULT_PROVIDER_API_VERSION = "v4"
@@ -76,6 +76,7 @@ class ProviderConfig:
 
     def __post_init__(self) -> None:
         validate_provider_api_version(self.api_version)
+        validate_provider_base_url(self.base_url)
 
 
 def validate_provider_api_version(api_version: str) -> str:
@@ -83,6 +84,21 @@ def validate_provider_api_version(api_version: str) -> str:
         supported = ", ".join(SUPPORTED_PROVIDER_API_VERSIONS)
         raise ValueError(f"unsupported Linode provider API version {api_version!r}; expected one of: {supported}")
     return api_version
+
+
+def validate_provider_base_url(base_url: str) -> str:
+    parsed = urlsplit(base_url)
+    if (
+        parsed.scheme != "https"
+        or not parsed.hostname
+        or parsed.username is not None
+        or parsed.password is not None
+        or parsed.query
+        or parsed.fragment
+        or parsed.path not in ("", "/")
+    ):
+        raise ValueError("provider base URL must be an HTTPS origin without credentials, path, query, or fragment")
+    return base_url
 
 
 def api_path(*parts: object, api_version: str = DEFAULT_PROVIDER_API_VERSION) -> str:
