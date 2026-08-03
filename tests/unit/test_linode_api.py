@@ -48,6 +48,23 @@ class LinodeApiTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             ProviderConfig(api_version="v3")
 
+    def test_provider_base_url_requires_https(self) -> None:
+        with self.assertRaisesRegex(ValueError, "must be an HTTPS origin"):
+            ProviderConfig(base_url="http://api.linode.com")
+
+    def test_provider_base_url_rejects_ambiguous_url_components(self) -> None:
+        invalid_urls = (
+            "https://user@example.com",
+            "https://api.linode.com/private-path",
+            "https://api.linode.com?target=private",
+            "https://api.linode.com#private",
+        )
+
+        for base_url in invalid_urls:
+            with self.subTest(base_url=base_url):
+                with self.assertRaisesRegex(ValueError, "must be an HTTPS origin"):
+                    ProviderConfig(base_url=base_url)
+
     def test_client_generates_backup_read_paths_from_provider_config(self) -> None:
         seen: list[tuple[str, str, dict[str, object], dict[str, object] | None]] = []
 
