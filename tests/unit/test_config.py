@@ -6,6 +6,21 @@ from linode_backup_lab.config import CONFIG_SCHEMA_VERSION, ConfigError, load_co
 
 
 class ConfigTests(unittest.TestCase):
+    def test_rejects_config_path_that_is_not_a_readable_file(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir)
+
+            with self.assertRaisesRegex(ConfigError, "unable to read config file"):
+                load_config(path)
+
+    def test_rejects_config_that_is_not_valid_utf8(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "backup-lab.toml"
+            path.write_bytes(b'\xffschema_version = "1"\n')
+
+            with self.assertRaisesRegex(ConfigError, "config file is not valid UTF-8"):
+                load_config(path)
+
     def test_loads_minimal_explicit_config(self) -> None:
         with TemporaryDirectory() as tmpdir:
             path = Path(tmpdir) / "backup-lab.toml"
