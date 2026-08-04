@@ -46,8 +46,12 @@ def load_config(path: str | Path) -> BackupLabConfig:
             raw_config = tomllib.load(config_file)
     except FileNotFoundError as exc:
         raise ConfigError(f"config file not found: {config_path}") from exc
+    except UnicodeDecodeError as exc:
+        raise ConfigError(f"config file is not valid UTF-8: {config_path}") from exc
     except tomllib.TOMLDecodeError as exc:
         raise ConfigError(f"invalid TOML config: {exc}") from exc
+    except OSError as exc:
+        raise ConfigError(f"unable to read config file: {config_path}") from exc
 
     return validate_config(raw_config, config_path=config_path)
 
