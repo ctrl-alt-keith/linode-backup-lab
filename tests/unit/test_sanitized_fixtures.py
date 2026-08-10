@@ -325,6 +325,17 @@ class SanitizedFixtureTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "backup_label must use a sanitized placeholder"):
                 load_sanitized_inspect_fixture(fixture_path)
 
+    def test_replay_fixture_loader_rejects_duplicate_object_keys(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            fixture_path = Path(tmpdir) / "duplicate-key.json"
+            fixture_path.write_text(
+                '[{"backup_status":"successful","backup_status":"failed"}]',
+                encoding="utf-8",
+            )
+
+            with self.assertRaisesRegex(ValueError, "duplicate object key: backup_status"):
+                load_sanitized_inspect_fixture(fixture_path)
+
     def test_replay_fixture_loader_rejects_raw_provider_shape_and_urls(self) -> None:
         with TemporaryDirectory() as tmpdir:
             raw_shape_path = Path(tmpdir) / "raw-provider-shape.json"
