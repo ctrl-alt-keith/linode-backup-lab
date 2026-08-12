@@ -53,7 +53,8 @@ def load_sanitized_inspect_fixture(path: Path) -> list[JsonMap]:
     """Load a sanitized normalized backup fixture for inspect replay."""
 
     try:
-        data = json.loads(path.read_text(encoding="utf-8"))
+        fixture_text = path.read_text(encoding="utf-8")
+        data = json.loads(fixture_text, object_pairs_hook=_unique_json_object)
     except OSError as exc:
         raise ValueError(f"unable to read inspect replay fixture: {exc}") from exc
     except json.JSONDecodeError as exc:
@@ -71,6 +72,15 @@ def load_sanitized_inspect_fixture(path: Path) -> list[JsonMap]:
         backups.append(backup)
 
     return backups
+
+
+def _unique_json_object(pairs: list[tuple[str, object]]) -> JsonMap:
+    decoded: JsonMap = {}
+    for key, value in pairs:
+        if key in decoded:
+            raise json.JSONDecodeError(f"duplicate object key: {key}", "", 0)
+        decoded[key] = value
+    return decoded
 
 
 def validate_public_safe_fixture_backup(backup: JsonMap, *, index: int) -> None:
