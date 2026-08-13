@@ -137,10 +137,6 @@ class LinodeApiClient:
         raw = self.request("GET", self.path("linode", "instances", linode_id, "backups"))
         return normalize_backup_collection(raw)
 
-    def get_backup(self, linode_id: int, backup_id: int) -> JsonMap:
-        raw = self.request("GET", self.path("linode", "instances", linode_id, "backups", backup_id))
-        return normalize_backup(raw)
-
     def request(self, method: str, path: str, body: JsonMap | None = None) -> JsonMap:
         method = method.upper()
         if method != "GET" or body is not None:
