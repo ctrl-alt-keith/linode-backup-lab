@@ -371,6 +371,44 @@ class SanitizedFixtureTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "unsafe raw-looking fixture text"):
                 load_sanitized_inspect_fixture(raw_url_path)
 
+    def test_replay_fixture_loader_rejects_nested_raw_provider_material(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            raw_field_path = Path(tmpdir) / "nested-raw-provider-field.json"
+            raw_field_path.write_text(
+                json.dumps(
+                    [
+                        {
+                            "backup_id": "SANITIZED_BACKUP_ID",
+                            "backup_label": None,
+                            "metadata": {
+                                "id": 123456,
+                            },
+                        }
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            sensitive_value_path = Path(tmpdir) / "nested-sensitive-value.json"
+            sensitive_value_path.write_text(
+                json.dumps(
+                    [
+                        {
+                            "backup_id": "SANITIZED_BACKUP_ID",
+                            "backup_label": None,
+                            "metadata": {
+                                "backup_label": "private-snapshot-label",
+                            },
+                        }
+                    ]
+                ),
+                encoding="utf-8",
+            )
+
+            with self.assertRaisesRegex(ValueError, "contains raw provider fields: id"):
+                load_sanitized_inspect_fixture(raw_field_path)
+            with self.assertRaisesRegex(ValueError, "backup_label must use a sanitized placeholder"):
+                load_sanitized_inspect_fixture(sensitive_value_path)
+
     def test_sanitized_fixtures_avoid_private_or_raw_provider_material(self) -> None:
         fixture_text = "\n".join(
             path.read_text(encoding="utf-8")

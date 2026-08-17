@@ -86,15 +86,30 @@ def _unique_json_object(pairs: list[tuple[str, object]]) -> JsonMap:
 def validate_public_safe_fixture_backup(backup: JsonMap, *, index: int) -> None:
     """Reject obvious raw provider material in a replay fixture record."""
 
-    raw_fields = sorted(str(key) for key in backup if key in RAW_PROVIDER_FIELDS)
-    if raw_fields:
-        joined = ", ".join(raw_fields)
-        raise ValueError(f"inspect replay fixture item {index} contains raw provider fields: {joined}")
+    validate_public_safe_fixture_value(backup, index=index)
 
-    for key, value in backup.items():
-        if key in SENSITIVE_NORMALIZED_FIELDS:
-            validate_sanitized_normalized_field(key, value, index=index)
-        validate_no_obviously_unsafe_fixture_value(value, index=index)
+
+def validate_public_safe_fixture_value(value: object, *, index: int) -> None:
+    """Reject raw provider fields and unsafe text at every fixture depth."""
+
+    if isinstance(value, dict):
+        raw_fields = sorted(str(key) for key in value if key in RAW_PROVIDER_FIELDS)
+        if raw_fields:
+            joined = ", ".join(raw_fields)
+            raise ValueError(f"inspect replay fixture item {index} contains raw provider fields: {joined}")
+
+        for key, nested_value in value.items():
+            if key in SENSITIVE_NORMALIZED_FIELDS:
+                validate_sanitized_normalized_field(key, nested_value, index=index)
+            validate_public_safe_fixture_value(nested_value, index=index)
+        return
+
+    if isinstance(value, list):
+        for nested_value in value:
+            validate_public_safe_fixture_value(nested_value, index=index)
+        return
+
+    validate_no_obviously_unsafe_fixture_value(value, index=index)
 
 
 def validate_sanitized_normalized_field(key: str, value: object, *, index: int) -> None:
@@ -111,12 +126,6 @@ def validate_no_obviously_unsafe_fixture_value(value: object, *, index: int) -> 
     if isinstance(value, str):
         if any(pattern.search(value) for pattern in UNSAFE_FIXTURE_PATTERNS):
             raise ValueError(f"inspect replay fixture item {index} contains unsafe raw-looking fixture text")
-    elif isinstance(value, dict):
-        for nested in value.values():
-            validate_no_obviously_unsafe_fixture_value(nested, index=index)
-    elif isinstance(value, list):
-        for nested in value:
-            validate_no_obviously_unsafe_fixture_value(nested, index=index)
 
 
 def create_replay_inspect_manifest(
