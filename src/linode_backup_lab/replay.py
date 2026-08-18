@@ -33,6 +33,8 @@ RAW_PROVIDER_FIELDS = frozenset(
     {
         "id",
         "label",
+        "status",
+        "type",
         "created",
         "finished",
         "updated",
