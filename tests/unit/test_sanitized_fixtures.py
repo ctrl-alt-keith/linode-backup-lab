@@ -371,6 +371,26 @@ class SanitizedFixtureTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "unsafe raw-looking fixture text"):
                 load_sanitized_inspect_fixture(raw_url_path)
 
+    def test_replay_fixture_loader_rejects_raw_provider_status_and_type(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            fixture_path = Path(tmpdir) / "raw-provider-status-and-type.json"
+            fixture_path.write_text(
+                json.dumps(
+                    [
+                        {
+                            "backup_id": "SANITIZED_BACKUP_ID",
+                            "backup_label": None,
+                            "status": "successful",
+                            "type": "snapshot",
+                        }
+                    ]
+                ),
+                encoding="utf-8",
+            )
+
+            with self.assertRaisesRegex(ValueError, "contains raw provider fields: status, type"):
+                load_sanitized_inspect_fixture(fixture_path)
+
     def test_replay_fixture_loader_rejects_nested_raw_provider_material(self) -> None:
         with TemporaryDirectory() as tmpdir:
             raw_field_path = Path(tmpdir) / "nested-raw-provider-field.json"
