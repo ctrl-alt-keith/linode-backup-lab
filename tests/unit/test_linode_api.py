@@ -58,6 +58,8 @@ class LinodeApiTests(unittest.TestCase):
             "https://api.linode.com/private-path",
             "https://api.linode.com?target=private",
             "https://api.linode.com#private",
+            "https://api.linode.com:not-a-port",
+            "https://api.linode.com:99999",
         )
 
         for base_url in invalid_urls:
