@@ -88,6 +88,10 @@ def validate_provider_api_version(api_version: str) -> str:
 
 def validate_provider_base_url(base_url: str) -> str:
     parsed = urlsplit(base_url)
+    try:
+        parsed.port
+    except ValueError as exc:
+        raise ValueError("provider base URL must be an HTTPS origin without credentials, path, query, or fragment") from exc
     if (
         parsed.scheme != "https"
         or not parsed.hostname
