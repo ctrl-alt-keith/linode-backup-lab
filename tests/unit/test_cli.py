@@ -364,6 +364,27 @@ class CliTests(unittest.TestCase):
         self.assertIn("LINODE_TOKEN is required for inspect", stderr.getvalue())
         provider_factory.assert_not_called()
 
+    def test_inspect_rejects_whitespace_only_linode_token_before_client_construction(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "backup-lab.toml"
+            write_config(path)
+            stdout = StringIO()
+            stderr = StringIO()
+            provider_factory = Mock(side_effect=AssertionError("provider client construction"))
+
+            exit_code = main(
+                ["inspect", "--config", str(path)],
+                stdout=stdout,
+                stderr=stderr,
+                environ={"LINODE_TOKEN": " \t "},
+                inspect_client_factory=provider_factory,
+            )
+
+        self.assertEqual(exit_code, 2)
+        self.assertEqual(stdout.getvalue(), "")
+        self.assertIn("LINODE_TOKEN is required for inspect", stderr.getvalue())
+        provider_factory.assert_not_called()
+
     def test_inspect_outputs_public_safe_read_only_manifest(self) -> None:
         with TemporaryDirectory() as tmpdir:
             path = Path(tmpdir) / "backup-lab.toml"
