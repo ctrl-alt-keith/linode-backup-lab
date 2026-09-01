@@ -352,6 +352,60 @@ class InspectTests(unittest.TestCase):
         self.assertNotIn("private-target-label", manifest_json)
         self.assertNotIn("different-provider-label", manifest_json)
 
+    def test_inspect_reports_missing_current_snapshot_as_drift_advisory(self) -> None:
+        class AutomaticOnlyClient:
+            provider_api_version = "v4"
+
+            def list_backups(self, linode_id: int) -> list[dict[str, object]]:
+                return [
+                    {
+                        "backup_id": 123456,
+                        "backup_label": "private-automatic-label",
+                        "backup_status": "successful",
+                        "backup_kind": "automatic",
+                        "snapshot_state": None,
+                        "provider_type": "auto",
+                        "available": True,
+                        "created_at": "2026-05-06T13:00:00",
+                        "finished_at": "2026-05-06T13:05:00",
+                        "updated_at": "2026-05-06T13:06:00",
+                        "config_count": 1,
+                        "disk_count": 2,
+                    }
+                ]
+
+        config = BackupLabConfig(
+            schema_version="1",
+            target=TargetConfig(linode_id=123, snapshot_label="private-target-label"),
+        )
+
+        manifest = create_inspect_manifest(config, client=AutomaticOnlyClient())
+        manifest_json = json.dumps(manifest, sort_keys=True)
+
+        self.assertEqual(manifest["validation"]["status"], "passed_with_drift_advisory")
+        self.assertEqual(manifest["state_assessment"]["status"], "provider_local_mismatch")
+        self.assertEqual(manifest["state_assessment"]["provider_local_match"], "mismatched")
+        self.assertIs(manifest["state_assessment"]["snapshot_current_present"], False)
+        self.assertIs(manifest["state_assessment"]["configured_snapshot_label_matches_current"], None)
+        self.assertEqual(manifest["state_assessment"]["stale_metadata"], {
+            "detected": True,
+            "possible": False,
+            "reason": "current_snapshot_not_present",
+        })
+        self.assertEqual(
+            manifest["review_summary"]["attention"],
+            [
+                "Configured snapshot label did not match the current provider snapshot.",
+                "refresh provider backup state immediately before any future mutation path is allowed",
+            ],
+        )
+        self.assertEqual(
+            manifest["review"]["retry_recovery"]["provider_state_classification"],
+            "operator_review_required",
+        )
+        self.assertNotIn("private-target-label", manifest_json)
+        self.assertNotIn("private-automatic-label", manifest_json)
+
     def test_inspect_treats_current_snapshot_match_with_in_progress_as_uncertain(self) -> None:
         config = BackupLabConfig(
             schema_version="1",
