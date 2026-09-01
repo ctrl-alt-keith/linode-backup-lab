@@ -233,6 +233,28 @@ class LinodeApiTests(unittest.TestCase):
         self.assertNotIn("private-network-detail", str(error))
         self.assertNotIn("token-value", str(error))
 
+    def test_http_transport_reports_socket_failure_without_raw_reason(self) -> None:
+        def failing_urlopen(request: object, timeout: float) -> object:
+            raise TimeoutError("private-timeout-detail token-value")
+
+        with patch("linode_backup_lab.linode_api.urlopen", failing_urlopen):
+            with self.assertRaises(ProviderError) as raised:
+                ReadOnlyHttpTransport()(
+                    "GET",
+                    "https://api.linode.com/v4/linode/instances/112233/backups",
+                    {"Authorization": "Bearer token-value"},
+                    None,
+                )
+
+        error = raised.exception
+        self.assertEqual(str(error), "Linode API read failed before receiving a response")
+        self.assertEqual(error.category, "network_error")
+        self.assertIs(error.request_sent, True)
+        self.assertIs(error.response_received, False)
+        self.assertIs(error.status_code, None)
+        self.assertNotIn("private-timeout-detail", str(error))
+        self.assertNotIn("token-value", str(error))
+
     def test_http_transport_reports_invalid_json_without_raw_payload(self) -> None:
         with patch("linode_backup_lab.linode_api.urlopen", return_value=FakeResponse(b'{"token": "secret"')):
             with self.assertRaises(ProviderError) as raised:

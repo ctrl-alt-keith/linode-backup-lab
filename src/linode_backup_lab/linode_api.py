@@ -182,6 +182,14 @@ class ReadOnlyHttpTransport:
                 request_sent=True,
                 response_received=False,
             ) from exc
+        except OSError as exc:
+            raise ProviderError(
+                detail=str(exc),
+                public_message="Linode API read failed before receiving a response",
+                category="network_error",
+                request_sent=True,
+                response_received=False,
+            ) from exc
 
         try:
             payload = response_body.decode("utf-8")
