@@ -129,6 +129,27 @@ class LinodeApiTests(unittest.TestCase):
 
         self.assertEqual(seen, [])
 
+    def test_client_rejects_invalid_linode_ids_before_transport(self) -> None:
+        seen: list[str] = []
+
+        def transport(
+            method: str,
+            url: str,
+            headers: dict[str, object],
+            body: dict[str, object] | None,
+        ) -> dict[str, object]:
+            seen.append(url)
+            return {}
+
+        client = LinodeApiClient(token="token", transport=transport)
+
+        for linode_id in (0, -1, True, "123"):
+            with self.subTest(linode_id=linode_id):
+                with self.assertRaisesRegex(ValueError, "positive integer"):
+                    client.list_backups(linode_id)  # type: ignore[arg-type]
+
+        self.assertEqual(seen, [])
+
     def test_client_rejects_request_bodies_before_transport(self) -> None:
         seen: list[str] = []
 
