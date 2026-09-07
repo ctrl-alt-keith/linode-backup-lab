@@ -138,6 +138,7 @@ class LinodeApiClient:
         return self.config.base_url.rstrip("/") + self.path(*parts)
 
     def list_backups(self, linode_id: int) -> list[JsonMap]:
+        validate_linode_id(linode_id)
         raw = self.request("GET", self.path("linode", "instances", linode_id, "backups"))
         return normalize_backup_collection(raw)
 
@@ -150,6 +151,14 @@ class LinodeApiClient:
             "Content-Type": "application/json",
         }
         return self.transport(method, self.config.base_url.rstrip("/") + path, headers, body)
+
+
+def validate_linode_id(linode_id: object) -> int:
+    """Validate an instance identifier before it reaches the provider path."""
+
+    if isinstance(linode_id, bool) or not isinstance(linode_id, int) or linode_id <= 0:
+        raise ValueError("linode_id must be a positive integer")
+    return linode_id
 
 
 @dataclass(frozen=True)
