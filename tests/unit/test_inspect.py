@@ -352,6 +352,37 @@ class InspectTests(unittest.TestCase):
         self.assertNotIn("private-target-label", manifest_json)
         self.assertNotIn("different-provider-label", manifest_json)
 
+    def test_inspect_treats_current_snapshot_without_label_as_uncertain(self) -> None:
+        config = BackupLabConfig(
+            schema_version="1",
+            target=TargetConfig(linode_id=123, snapshot_label="private-target-label"),
+        )
+
+        manifest = create_inspect_manifest(config, client=CurrentSnapshotClient(None))
+        manifest_json = json.dumps(manifest, sort_keys=True)
+
+        self.assertEqual(manifest["validation"]["status"], "passed_with_uncertain_provider_state")
+        self.assertEqual(manifest["state_assessment"]["status"], "uncertain_provider_state")
+        self.assertEqual(manifest["state_assessment"]["provider_local_match"], "unknown")
+        self.assertIs(manifest["state_assessment"]["snapshot_current_present"], True)
+        self.assertIs(manifest["state_assessment"]["configured_snapshot_label_matches_current"], None)
+        self.assertEqual(
+            manifest["state_assessment"]["stale_metadata"],
+            {
+                "detected": False,
+                "possible": True,
+                "reason": "current_snapshot_label_not_reported",
+            },
+        )
+        self.assertEqual(
+            manifest["review_summary"]["attention"],
+            [
+                "Provider snapshot comparison is uncertain: current_snapshot_label_not_reported.",
+                "refresh provider backup state immediately before any future mutation path is allowed",
+            ],
+        )
+        self.assertNotIn("private-target-label", manifest_json)
+
     def test_inspect_reports_missing_current_snapshot_as_drift_advisory(self) -> None:
         class AutomaticOnlyClient:
             provider_api_version = "v4"
