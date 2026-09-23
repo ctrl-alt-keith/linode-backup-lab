@@ -325,6 +325,15 @@ class SanitizedFixtureTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "backup_label must use a sanitized placeholder"):
                 load_sanitized_inspect_fixture(fixture_path)
 
+    def test_replay_fixture_loader_requires_complete_placeholder_tokens(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            fixture_path = Path(tmpdir) / "unsafe-placeholder.json"
+            for value in ("SANITIZED_", "SANITIZED__", "SANITIZED_ID private", "SANITIZED_ID\nprivate"):
+                with self.subTest(value=value):
+                    fixture_path.write_text(json.dumps([{"backup_id": value}]), encoding="utf-8")
+                    with self.assertRaisesRegex(ValueError, "backup_id must use a sanitized placeholder"):
+                        load_sanitized_inspect_fixture(fixture_path)
+
     def test_replay_fixture_loader_rejects_duplicate_object_keys(self) -> None:
         with TemporaryDirectory() as tmpdir:
             fixture_path = Path(tmpdir) / "duplicate-key.json"

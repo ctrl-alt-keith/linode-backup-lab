@@ -19,7 +19,7 @@ from .manifest import create_manifest, redacted_target_metadata
 from .plan import mutation_intent
 from .review import backup_state_visibility, mutation_review, provider_call_review, retry_recovery_review
 
-PUBLIC_SAFE_PLACEHOLDER_PREFIX = "SANITIZED_"
+PUBLIC_SAFE_PLACEHOLDER = re.compile(r"SANITIZED_[A-Z0-9][A-Z0-9_]*\Z")
 SENSITIVE_NORMALIZED_FIELDS = frozenset(
     {
         "backup_id",
@@ -117,7 +117,7 @@ def validate_public_safe_fixture_value(value: object, *, index: int) -> None:
 def validate_sanitized_normalized_field(key: str, value: object, *, index: int) -> None:
     if value is None:
         return
-    if isinstance(value, str) and value.startswith(PUBLIC_SAFE_PLACEHOLDER_PREFIX):
+    if isinstance(value, str) and PUBLIC_SAFE_PLACEHOLDER.fullmatch(value):
         return
     raise ValueError(
         f"inspect replay fixture item {index} field {key} must use a sanitized placeholder or null"
