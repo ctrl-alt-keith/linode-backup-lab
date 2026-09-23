@@ -158,6 +158,9 @@ configured label only with the current manual snapshot slot visible in the
 backup-service read; they are not general backup health, restore readiness, or
 mutation approval. It does not create snapshots, enable or cancel backups,
 restore backups, mutate Linode resources, or perform cleanup.
+When a current manual snapshot is present but its label is unavailable, inspect
+reports uncertain provider state rather than a label mismatch. Refresh the
+provider state and review it before relying on the comparison for future work.
 If the provider read fails after local inspect preconditions pass, inspect keeps
 the provider-failure exit code `1` and emits a public-safe JSON failure report.
 The failure report records only coarse failure metadata; it does not emit token
