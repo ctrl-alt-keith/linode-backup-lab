@@ -258,8 +258,10 @@ Replay fixtures must contain only public-safe normalized backup values. Raw
 provider fields, provider identifiers, labels, timestamps, URLs, authorization
 headers, raw provider response bodies, and token material are outside the replay
 contract. Sensitive normalized fields should be `null` or use synthetic
-placeholders such as `SANITIZED_*`. The fixture loader rejects duplicate JSON
-object keys, obvious raw provider fields, and raw-looking fixture text as
+placeholders such as `SANITIZED_BACKUP_ID`. Sensitive-field placeholders must
+contain only uppercase letters, digits, and underscores after `SANITIZED_`.
+The fixture loader rejects duplicate JSON object keys, obvious raw provider
+fields, and raw-looking fixture text as
 lightweight safety checks; it does not validate live provider semantics.
 
 Replay may compare the configured snapshot label to labels present in the
