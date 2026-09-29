@@ -364,6 +364,32 @@ class CliTests(unittest.TestCase):
         self.assertIn("LINODE_TOKEN is required for inspect", stderr.getvalue())
         provider_factory.assert_not_called()
 
+    def test_inspect_missing_config_fails_before_credential_or_provider_setup(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "missing-backup-lab.toml"
+            stdout = StringIO()
+            stderr = StringIO()
+            provider_factory = Mock(side_effect=AssertionError("provider client construction"))
+
+            with patch(
+                "linode_backup_lab.cli.require_linode_token",
+                side_effect=AssertionError("provider credential lookup"),
+            ) as credential_lookup:
+                exit_code = main(
+                    ["inspect", "--config", str(path)],
+                    stdout=stdout,
+                    stderr=stderr,
+                    environ={"LINODE_TOKEN": "must-not-be-used"},
+                    inspect_client_factory=provider_factory,
+                )
+
+        self.assertEqual(exit_code, 2)
+        self.assertEqual(stdout.getvalue(), "")
+        self.assertIn(f"config file not found: {path}", stderr.getvalue())
+        self.assertNotIn("must-not-be-used", stderr.getvalue())
+        credential_lookup.assert_not_called()
+        provider_factory.assert_not_called()
+
     def test_inspect_rejects_whitespace_only_linode_token_before_client_construction(self) -> None:
         with TemporaryDirectory() as tmpdir:
             path = Path(tmpdir) / "backup-lab.toml"
