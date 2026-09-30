@@ -166,6 +166,9 @@ the provider-failure exit code `1` and emits a public-safe JSON failure report.
 The failure report records only coarse failure metadata; it does not emit token
 values, raw provider payloads, provider URLs, authorization headers, target
 values, backup identifiers, labels, or timestamps.
+Local precondition failures, including a missing config file or missing
+`LINODE_TOKEN`, instead return exit code `2` on stderr before provider setup and
+do not emit a JSON manifest.
 
 ## Inspect Replay From Sanitized Fixtures
 
