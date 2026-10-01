@@ -118,8 +118,6 @@ def main(
         elif args.command == "inspect-replay":
             fixture_backups = load_sanitized_inspect_fixture(args.fixture)
             manifest = create_replay_inspect_manifest(config, fixture_backups=fixture_backups, command=args.command)
-        else:
-            parser.error(f"unsupported command: {args.command}")
     except ConfigError as exc:
         print(f"error: {exc}", file=error_output)
         return 2
