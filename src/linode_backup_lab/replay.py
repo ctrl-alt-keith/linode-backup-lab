@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 import re
 from pathlib import Path
 
@@ -56,7 +57,12 @@ def load_sanitized_inspect_fixture(path: Path) -> list[JsonMap]:
 
     try:
         fixture_text = path.read_text(encoding="utf-8")
-        data = json.loads(fixture_text, object_pairs_hook=_unique_json_object)
+        data = json.loads(
+            fixture_text,
+            object_pairs_hook=_unique_json_object,
+            parse_constant=_reject_non_finite_constant,
+            parse_float=_finite_float,
+        )
     except OSError as exc:
         raise ValueError(f"unable to read inspect replay fixture: {exc}") from exc
     except json.JSONDecodeError as exc:
@@ -83,6 +89,17 @@ def _unique_json_object(pairs: list[tuple[str, object]]) -> JsonMap:
             raise json.JSONDecodeError(f"duplicate object key: {key}", "", 0)
         decoded[key] = value
     return decoded
+
+
+def _reject_non_finite_constant(_value: str) -> None:
+    raise json.JSONDecodeError("non-finite numeric value", "", 0)
+
+
+def _finite_float(value: str) -> float:
+    parsed = float(value)
+    if not math.isfinite(parsed):
+        raise json.JSONDecodeError("non-finite numeric value", "", 0)
+    return parsed
 
 
 def validate_public_safe_fixture_backup(backup: JsonMap, *, index: int) -> None:

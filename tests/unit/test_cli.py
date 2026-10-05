@@ -304,6 +304,10 @@ class CliTests(unittest.TestCase):
     def test_inspect_replay_invalid_fixture_returns_precondition_error_without_manifest(self) -> None:
         cases = [
             ("malformed-json", "{not json", "inspect replay fixture is not valid JSON"),
+            ("non-finite-nan", '[{"config_count": NaN}]', "non-finite numeric value"),
+            ("non-finite-infinity", '[{"config_count": Infinity}]', "non-finite numeric value"),
+            ("non-finite-negative-infinity", '[{"config_count": -Infinity}]', "non-finite numeric value"),
+            ("overflowing-exponent", '[{"config_count": 1e999}]', "non-finite numeric value"),
             (
                 "raw-provider-shape",
                 json.dumps(
