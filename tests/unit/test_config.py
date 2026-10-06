@@ -101,6 +101,27 @@ class ConfigTests(unittest.TestCase):
             with self.assertRaises(ConfigError):
                 load_config(path)
 
+    def test_rejects_boolean_target_id_from_toml(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "backup-lab.toml"
+            for value in ("true", "false"):
+                with self.subTest(value=value):
+                    path.write_text(
+                        '\n'.join(
+                            [
+                                'schema_version = "1"',
+                                '',
+                                '[target]',
+                                f'linode_id = {value}',
+                                'snapshot_label = "pre-upgrade"',
+                            ]
+                        ),
+                        encoding="utf-8",
+                    )
+
+                    with self.assertRaisesRegex(ConfigError, "positive integer"):
+                        load_config(path)
+
     def test_reports_grouped_validation_failures_with_paths_and_hints(self) -> None:
         with TemporaryDirectory() as tmpdir:
             path = Path(tmpdir) / "backup-lab.toml"
