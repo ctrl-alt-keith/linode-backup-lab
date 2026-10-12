@@ -140,6 +140,13 @@ class LinodeApiClient:
     def list_backups(self, linode_id: int) -> list[JsonMap]:
         validate_linode_id(linode_id)
         raw = self.request("GET", self.path("linode", "instances", linode_id, "backups"))
+        if "automatic" not in raw and "snapshot" not in raw:
+            raise ProviderError(
+                public_message="Linode API returned an unexpected backup collection shape",
+                category="unexpected_json_shape",
+                request_sent=True,
+                response_received=True,
+            )
         return normalize_backup_collection(raw)
 
     def request(self, method: str, path: str, body: JsonMap | None = None) -> JsonMap:
