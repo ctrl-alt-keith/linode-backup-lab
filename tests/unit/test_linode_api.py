@@ -506,6 +506,19 @@ class LinodeApiTests(unittest.TestCase):
             [(1, "automatic", None), (2, "snapshot", "current"), (3, "snapshot", "in_progress")],
         )
 
+    def test_client_rejects_backup_response_without_collection_groups(self) -> None:
+        client = LinodeApiClient(token="token", transport=lambda *_args: {"errors": []})
+
+        with self.assertRaises(ProviderError) as raised:
+            client.list_backups(123)
+
+        error = raised.exception
+        self.assertEqual(error.category, "unexpected_json_shape")
+        self.assertEqual(str(error), "Linode API returned an unexpected backup collection shape")
+        self.assertTrue(error.request_sent)
+        self.assertTrue(error.response_received)
+        self.assertNotIn("errors", str(error))
+
     def test_normalize_backup_collection_tolerates_unusable_provider_groups(self) -> None:
         backups = normalize_backup_collection(
             {

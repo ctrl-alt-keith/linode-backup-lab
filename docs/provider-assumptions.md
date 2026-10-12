@@ -47,6 +47,11 @@ redact target values, backup identifiers, backup labels, and provider
 timestamps; they keep summary counts, statuses, availability, and normalized
 backup/snapshot categories.
 
+The documented List backups response has `automatic` and `snapshot` groups.
+If a successful HTTP response has neither group, inspect reports a provider
+read failure rather than treating that response as an empty backup collection.
+Partially populated groups still receive best-effort normalization.
+
 Documented provider behavior is not the same as a project guarantee. This
 bootstrap records provider references for backup and snapshot inspection work;
 future restore-drill validation remains deferred conceptual scope. No live
