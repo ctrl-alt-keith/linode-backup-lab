@@ -438,6 +438,32 @@ class SanitizedFixtureTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "backup_label must use a sanitized placeholder"):
                 load_sanitized_inspect_fixture(sensitive_value_path)
 
+    def test_replay_fixture_loader_rejects_unsafe_material_inside_nested_arrays(self) -> None:
+        unsafe_values = (
+            "https://example.invalid/private/123456",
+            "Bearer example-token",
+            "Authorization: example-token",
+            "LINODE_TOKEN",
+            "2026-05-06T13:00:00Z",
+        )
+        with TemporaryDirectory() as tmpdir:
+            fixture_path = Path(tmpdir) / "nested-array.json"
+            for unsafe_value in unsafe_values:
+                with self.subTest(unsafe_value=unsafe_value):
+                    fixture_path.write_text(
+                        json.dumps([{"metadata": [{"notes": ["safe note", unsafe_value]}]}]),
+                        encoding="utf-8",
+                    )
+                    with self.assertRaisesRegex(ValueError, "unsafe raw-looking fixture text"):
+                        load_sanitized_inspect_fixture(fixture_path)
+
+            fixture_path.write_text(
+                json.dumps([{"metadata": [{"provider_record": {"id": 123456}}]}]),
+                encoding="utf-8",
+            )
+            with self.assertRaisesRegex(ValueError, "contains raw provider fields: id"):
+                load_sanitized_inspect_fixture(fixture_path)
+
     def test_sanitized_fixtures_avoid_private_or_raw_provider_material(self) -> None:
         fixture_text = "\n".join(
             path.read_text(encoding="utf-8")
