@@ -76,7 +76,7 @@ def load_sanitized_inspect_fixture(path: Path) -> list[JsonMap]:
         if not isinstance(item, dict):
             raise ValueError(f"inspect replay fixture item {index} must be a JSON object")
         backup = dict(item)
-        validate_public_safe_fixture_backup(backup, index=index)
+        validate_public_safe_fixture_value(backup, index=index)
         backups.append(backup)
 
     return backups
@@ -100,12 +100,6 @@ def _finite_float(value: str) -> float:
     if not math.isfinite(parsed):
         raise json.JSONDecodeError("non-finite numeric value", "", 0)
     return parsed
-
-
-def validate_public_safe_fixture_backup(backup: JsonMap, *, index: int) -> None:
-    """Reject obvious raw provider material in a replay fixture record."""
-
-    validate_public_safe_fixture_value(backup, index=index)
 
 
 def validate_public_safe_fixture_value(value: object, *, index: int) -> None:
