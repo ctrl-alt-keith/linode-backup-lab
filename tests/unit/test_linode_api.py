@@ -2,6 +2,7 @@ from pathlib import Path
 import unittest
 from unittest.mock import patch
 from urllib.error import HTTPError, URLError
+from urllib.request import HTTPRedirectHandler
 
 from linode_backup_lab.linode_api import (
     DEFAULT_PROVIDER_API_VERSION,
@@ -192,6 +193,23 @@ class LinodeApiTests(unittest.TestCase):
                 )
 
         request.assert_not_called()
+
+    def test_http_transport_does_not_forward_token_on_redirect(self) -> None:
+        with patch("linode_backup_lab.linode_api.urlopen", return_value=FakeResponse(b"{}")) as open_url:
+            ReadOnlyHttpTransport()(
+                "GET",
+                "https://api.linode.com/v4/linode/instances/112233/backups",
+                {"Authorization": "Bearer token-value"},
+                None,
+            )
+
+        request = open_url.call_args.args[0]
+        self.assertEqual(request.get_header("Authorization"), "Bearer token-value")
+        redirected = HTTPRedirectHandler().redirect_request(
+            request, None, 302, "Found", {}, "https://elsewhere.example/backups"
+        )
+        self.assertIsNotNone(redirected)
+        self.assertIsNone(redirected.get_header("Authorization"))
 
     def test_provider_error_defaults_do_not_claim_request_attempt(self) -> None:
         error = ProviderError("private setup detail")
