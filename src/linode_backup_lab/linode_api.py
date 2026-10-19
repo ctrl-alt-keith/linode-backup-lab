@@ -178,7 +178,12 @@ class ReadOnlyHttpTransport:
         if method.upper() != "GET" or body is not None:
             raise ProviderReadOnlyViolation("read-only transport only permits GET requests without a body")
 
-        request = Request(url, headers={str(key): str(value) for key, value in headers.items()}, method="GET")
+        request = Request(url, method="GET")
+        for key, value in headers.items():
+            if str(key).lower() == PROVIDER_AUTHORIZATION_HEADER.lower():
+                request.add_unredirected_header(str(key), str(value))
+            else:
+                request.add_header(str(key), str(value))
         try:
             with urlopen(request, timeout=self.timeout_seconds) as response:
                 response_body = response.read()

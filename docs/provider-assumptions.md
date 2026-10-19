@@ -62,7 +62,8 @@ restore behavior exists in this repository.
 `LinodeApiClient` is the current live provider client and is read-only by
 contract. It exists for inspection reads only. Its `request` method accepts
 `GET` without a body; non-`GET` requests and request bodies are rejected before
-the transport is called.
+the transport is called. The transport sends the token on the initial request
+only; it does not forward the authorization header if that request redirects.
 
 Future snapshot execution must introduce a separate mutation-specific provider
 boundary in `src/linode_backup_lab/linode_api.py` rather than quietly adding
