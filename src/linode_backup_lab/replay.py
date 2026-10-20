@@ -112,6 +112,7 @@ def validate_public_safe_fixture_value(value: object, *, index: int) -> None:
             raise ValueError(f"inspect replay fixture item {index} contains raw provider fields: {joined}")
 
         for key, nested_value in value.items():
+            validate_no_obviously_unsafe_fixture_value(key, index=index)
             if key in SENSITIVE_NORMALIZED_FIELDS:
                 validate_sanitized_normalized_field(key, nested_value, index=index)
             validate_public_safe_fixture_value(nested_value, index=index)

@@ -464,6 +464,23 @@ class SanitizedFixtureTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "contains raw provider fields: id"):
                 load_sanitized_inspect_fixture(fixture_path)
 
+    def test_replay_fixture_loader_rejects_unsafe_text_in_nested_keys(self) -> None:
+        unsafe_keys = (
+            "https://example.invalid/private",
+            "Authorization: example-token",
+            "Bearer example-token",
+        )
+        with TemporaryDirectory() as tmpdir:
+            fixture_path = Path(tmpdir) / "unsafe-key.json"
+            for unsafe_key in unsafe_keys:
+                with self.subTest(unsafe_key=unsafe_key):
+                    fixture_path.write_text(
+                        json.dumps([{"metadata": [{unsafe_key: "safe value"}]}]),
+                        encoding="utf-8",
+                    )
+                    with self.assertRaisesRegex(ValueError, "unsafe raw-looking fixture text"):
+                        load_sanitized_inspect_fixture(fixture_path)
+
     def test_sanitized_fixtures_avoid_private_or_raw_provider_material(self) -> None:
         fixture_text = "\n".join(
             path.read_text(encoding="utf-8")
