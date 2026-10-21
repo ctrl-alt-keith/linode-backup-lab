@@ -262,7 +262,7 @@ placeholders such as `SANITIZED_BACKUP_ID`. Sensitive-field placeholders must
 contain only uppercase letters, digits, and underscores after `SANITIZED_`.
 The fixture loader rejects duplicate JSON object keys, obvious raw provider
 fields, non-finite numeric values (including `NaN`, infinities, and overflowing
-exponents), and raw-looking fixture text as
+exponents), and raw-looking text in values or object keys at any depth as
 lightweight safety checks; it does not validate live provider semantics.
 
 Replay may compare the configured snapshot label to labels present in the

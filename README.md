@@ -193,8 +193,8 @@ normalized backup values. Provider identifiers, labels, timestamps, URLs,
 headers, raw provider response bodies, and token material must be replaced with
 synthetic placeholders such as `SANITIZED_*` or omitted when the field is not
 needed. The replay loader rejects duplicate JSON object keys, obvious raw
-provider fields, and raw-looking fixture text as lightweight guardrails; it is
-not provider validation. Replay
+provider fields, and raw-looking text in values or object keys (including
+nested keys) as lightweight guardrails; it is not provider validation. Replay
 output is useful for checking report shape and inspect UX, but it is not
 evidence of live backup-service state or current manual snapshot-slot state and
 must not be used as restore approval, drift remediation input, or mutation
