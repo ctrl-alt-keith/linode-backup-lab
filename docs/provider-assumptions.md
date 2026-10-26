@@ -50,7 +50,11 @@ backup/snapshot categories.
 The documented List backups response has `automatic` and `snapshot` groups.
 If a successful HTTP response has neither group, inspect reports a provider
 read failure rather than treating that response as an empty backup collection.
-Partially populated groups still receive best-effort normalization.
+Inspect also reports a provider read failure when a present group or snapshot
+slot has an unusable type, rather than mistaking malformed data for missing
+backups. The documented `automatic = null` and `snapshot.current` or
+`snapshot.in_progress = null` values remain valid empty states. Partially
+populated backup records still receive best-effort normalization.
 
 Documented provider behavior is not the same as a project guarantee. This
 bootstrap records provider references for backup and snapshot inspection work;

@@ -113,6 +113,27 @@ def api_path(*parts: object, api_version: str = DEFAULT_PROVIDER_API_VERSION) ->
     return "/" + "/".join([version, *encoded_parts])
 
 
+def valid_backup_collection_groups(raw: JsonMap) -> bool:
+    """Reject unusable collection shapes before they can look like empty backups."""
+
+    if "automatic" not in raw and "snapshot" not in raw:
+        return False
+    automatic = raw.get("automatic")
+    if "automatic" in raw and automatic is not None:
+        if not isinstance(automatic, list) or any(item is not None and not isinstance(item, dict) for item in automatic):
+            return False
+    snapshot = raw.get("snapshot")
+    if "snapshot" in raw:
+        if not isinstance(snapshot, dict):
+            return False
+        if any(
+            slot in snapshot and snapshot[slot] is not None and not isinstance(snapshot[slot], dict)
+            for slot in ("current", "in_progress")
+        ):
+            return False
+    return True
+
+
 @dataclass
 class LinodeApiClient:
     """Small injectable read-only client for backup-service inspection."""
@@ -140,7 +161,7 @@ class LinodeApiClient:
     def list_backups(self, linode_id: int) -> list[JsonMap]:
         validate_linode_id(linode_id)
         raw = self.request("GET", self.path("linode", "instances", linode_id, "backups"))
-        if "automatic" not in raw and "snapshot" not in raw:
+        if not valid_backup_collection_groups(raw):
             raise ProviderError(
                 public_message="Linode API returned an unexpected backup collection shape",
                 category="unexpected_json_shape",

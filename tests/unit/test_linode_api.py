@@ -537,6 +537,37 @@ class LinodeApiTests(unittest.TestCase):
         self.assertTrue(error.response_received)
         self.assertNotIn("errors", str(error))
 
+    def test_client_rejects_malformed_backup_groups_instead_of_reporting_empty_state(self) -> None:
+        malformed_collections = (
+            {"automatic": "not-an-array", "snapshot": {}},
+            {"automatic": ["not-a-backup"], "snapshot": {}},
+            {"automatic": None, "snapshot": None},
+            {"automatic": [], "snapshot": {"current": []}},
+            {"automatic": [], "snapshot": {"in_progress": "not-a-backup"}},
+        )
+
+        for raw in malformed_collections:
+            with self.subTest(raw=raw):
+                client = LinodeApiClient(token="token", transport=lambda *_args: raw)
+                with self.assertRaises(ProviderError) as raised:
+                    client.list_backups(123)
+                error = raised.exception
+                self.assertEqual(error.category, "unexpected_json_shape")
+                self.assertTrue(error.request_sent)
+                self.assertTrue(error.response_received)
+                self.assertNotIn("not-a-backup", str(error))
+
+    def test_client_accepts_documented_empty_backup_values(self) -> None:
+        client = LinodeApiClient(
+            token="token",
+            transport=lambda *_args: {
+                "automatic": None,
+                "snapshot": {"current": None, "in_progress": None},
+            },
+        )
+
+        self.assertEqual(client.list_backups(123), [])
+
     def test_normalize_backup_collection_tolerates_unusable_provider_groups(self) -> None:
         backups = normalize_backup_collection(
             {
