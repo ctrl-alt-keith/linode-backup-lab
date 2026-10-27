@@ -87,6 +87,8 @@ def validate_provider_api_version(api_version: str) -> str:
 
 
 def validate_provider_base_url(base_url: str) -> str:
+    if any(ord(char) < 0x20 or ord(char) == 0x7F for char in base_url):
+        raise ValueError("provider base URL must be an HTTPS origin without credentials, path, query, or fragment")
     parsed = urlsplit(base_url)
     try:
         parsed.port
