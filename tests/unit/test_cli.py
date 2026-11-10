@@ -308,6 +308,7 @@ class CliTests(unittest.TestCase):
             ("non-finite-infinity", '[{"config_count": Infinity}]', "non-finite numeric value"),
             ("non-finite-negative-infinity", '[{"config_count": -Infinity}]', "non-finite numeric value"),
             ("overflowing-exponent", '[{"config_count": 1e999}]', "non-finite numeric value"),
+            ("non-string-backup-status", '[{"backup_status": []}]', "backup_status must be a string or null"),
             (
                 "raw-provider-shape",
                 json.dumps(

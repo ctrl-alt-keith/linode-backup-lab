@@ -77,6 +77,8 @@ def load_sanitized_inspect_fixture(path: Path) -> list[JsonMap]:
             raise ValueError(f"inspect replay fixture item {index} must be a JSON object")
         backup = dict(item)
         validate_public_safe_fixture_value(backup, index=index)
+        if backup.get("backup_status") is not None and not isinstance(backup["backup_status"], str):
+            raise ValueError(f"inspect replay fixture item {index} field backup_status must be a string or null")
         backups.append(backup)
 
     return backups
